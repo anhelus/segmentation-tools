@@ -16,5 +16,6 @@ YOLO_WORLD_MODELS = {
 }
 
 SAM_MODELS = {
-    'SAM-B': 'checkpoints/sam2.1_l.pt'
+    'SAM-B': 'checkpoints/sam_b.pt',
+    'SAM-2.1': 'checkpoints/sam2.1_l.pt'
 }

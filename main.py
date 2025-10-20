@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from src import constants
+from src.detectors import constants
 from src.detectors.utils import parse_cfg
 from src.detectors.gdino import GDinoDetector
 from src.detectors.owl import OwlDetector
@@ -53,13 +53,12 @@ def run_yolo_world(args):
     model_id = constants.YOLO_WORLD_MODELS[args.model]
     class_map = {k: 0 for k in args.prompts}
     detector = YoloWorldDetector(model_id)
-    gt_path = args.bbox_gt
     
     print(f"Setting model classes to: {list(class_map.keys())}")
     detector.model.set_classes(list(class_map.keys()))
 
     return detector.process_bbox_directory(
-        directory_path=gt_path,
+        directory_path=args.bbox_gt,
         model_name=args.model_type,
         class_map=class_map,
         score_thresh=args.threshold,
@@ -83,16 +82,14 @@ def run_grounded_sam(args):
         'threshold': args.threshold,
     }
 
-    if args.use_existing_labels:
-        print(f"Running SAM only, using existing labels from: {args.use_existing_labels}")
-        kwargs['label_dir'] = args.use_existing_labels
+    if args.precomputed_boxes:
+        print(f"Running SAM only, using existing labels from: {args.precomputed_boxes}")
         
         return detector.process_precomputed_boxes(
             directory_path=args.bbox_gt,
             model_name=args.model_type,
             class_map=class_map,
             batch_size=args.batch_size,
-            save_results=args.save_results,
             **kwargs
         )
     
@@ -146,13 +143,13 @@ if __name__ == "__main__":
     # --- Grounded SAM Parser ---
     grounded_sam_parser = subparsers.add_parser('grounded_sam', help='Use Grounded SAM pipeline.', parents=[parent_parser])
     grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-TINY', choices=constants.DINO_MODELS.keys())
-    grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-B', choices=constants.SAM_MODELS.keys())
+    grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=constants.SAM_MODELS.keys())
     grounded_sam_parser.add_argument('--labels', '-l', nargs='+', required=True, help='A list of class names for DINO to detect.')
     grounded_sam_parser.add_argument('--text-threshold', type=float, default=0.3, help='Confidence threshold for text matching.')
     grounded_sam_parser.add_argument('--threshold', '-t', type=float, default=0.35, help='Confidence threshold for object detection box.')
     grounded_sam_parser.add_argument(
-        '--use-existing-labels', type=str, default=None,
-        help='Path to a directory with existing YOLO format .txt labels. If provided, skips the DINO step and uses these boxes for SAM.'
+        '--precomputed-boxes', action="store_true", default=None,
+        help='Wether to skip the DINO step and use the boxes in dataset_path/bbox_ground_tr for SAM.'
     )
     grounded_sam_parser.set_defaults(func=run_grounded_sam)
 

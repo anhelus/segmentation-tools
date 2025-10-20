@@ -27,7 +27,7 @@ class GroundedSamDetector(BaseDetector):
         sam_model = SAM(model_id['sam'])
         sam_model.to(self.device)
 
-        return (dino_model, dino_processor), sam_model
+        return {"dino": dino_model, "sam": sam_model}, dino_processor
     
 
     def predict(self, images, class_map, precomputed_boxes=None, **kwargs):
@@ -54,15 +54,15 @@ class GroundedSamDetector(BaseDetector):
             text_inputs = [text_for_model] * len(images)
 
             # --- 1. Grounding DINO Prediction (Batched) ---
-            dino_inputs = self.dino_processor(
+            dino_inputs = self.processor(
                 images=images, text=text_inputs, return_tensors="pt", padding=True
             ).to(self.device)
             
             with torch.no_grad():
-                dino_outputs = self.dino_model(**dino_inputs)
+                dino_outputs = self.model["dino"](**dino_inputs)
 
             target_sizes = [image.size[::-1] for image in images]
-            dino_results_raw = self.dino_processor.post_process_grounded_object_detection(
+            dino_results_raw = self.processor.post_process_grounded_object_detection(
                 dino_outputs, dino_inputs.input_ids, target_sizes=target_sizes,
                 threshold=box_threshold, text_threshold=text_threshold
             )
@@ -83,7 +83,7 @@ class GroundedSamDetector(BaseDetector):
             boxes_for_sam = dino_results["boxes"].clone().to(self.device)
             
             if boxes_for_sam.nelement():
-                sam_results = self.sam_model(image_np, bboxes=boxes_for_sam, verbose=False)
+                sam_results = self.model["sam"](image_np, bboxes=boxes_for_sam, verbose=False)
                 
                 if sam_results and sam_results[0].masks:
                     sam_masks = sam_results[0].masks.data.cpu().numpy()

@@ -1,2 +1,12 @@
 dataset*/
 venv/
+runs/
+__pycache__/
+
+checkpoints/
+json_tasks_utilities/
+
+.vscode/
+
+*.pt
+*.pyc

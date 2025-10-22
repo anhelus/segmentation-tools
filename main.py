@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     # --- YOLO-World Parser ---
     yolo_parser = subparsers.add_parser('yolo_world', help='Use Ultralytics YOLO-World model.', parents=[parent_parser])
-    yolo_parser.add_argument('--model', type=str, default='YOLO-S-WORLD', choices=constants.YOLO_WORLD_MODELS.keys())
+    yolo_parser.add_argument('--model', type=str, default='YOLO-X-WORLD', choices=constants.YOLO_WORLD_MODELS.keys())
     yolo_parser.add_argument('--threshold', '-t', type=float, default=0.05, help='Detection confidence threshold.')
     yolo_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
     yolo_parser.set_defaults(func=run_yolo_world)

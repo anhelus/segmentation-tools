@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from src.metrics.utils import calculate_precision_recall, calculate_map, segmentation_iou, dice_score   
 from src.metrics.strategies import EvaluationStrategy, BboxStrategy, SegmentationStrategy
+import numpy as np
 
 
 class EvalMetrics(ABC):
@@ -17,20 +18,27 @@ class BboxMetrics(EvalMetrics):
     
     @staticmethod
     def evaluate(ground_truths, predictions, img_dims, thresh_list: list = [0.5, 0.75]):
-        n_gt = len(ground_truths)
         eval = {}
         for thresh in thresh_list:
             disp_thresh = int(thresh*100)
-            tot_p = tot_r = tot_map = 0
+            precisions, recalls, maps = [], [], []
+            
             for img_gt, img_pred in zip(ground_truths, predictions):
-                pr = calculate_precision_recall(img_gt, img_pred, thresh, img_dims, BboxMetrics.strategy)
-                tot_p += pr[0]['precision']
-                tot_r += pr[0]['recall']
-                tot_map += calculate_map(img_gt, img_pred, thresh, img_dims, BboxMetrics.strategy)
+                if not img_gt and not img_pred:
+                    continue
+                
+                pr_dict = calculate_precision_recall(img_gt, img_pred, thresh, img_dims, BboxMetrics.strategy)
 
-            eval[f'Precision@{disp_thresh}'] = tot_p / n_gt
-            eval[f'Recall@{disp_thresh}'] = tot_r / n_gt
-            eval[f'mAP@{disp_thresh}'] = tot_map / n_gt   
+                if pr_dict:
+                    precisions.append(pr_dict[0]['precision'])
+                    recalls.append(pr_dict[0]['recall'])
+                
+                _map = calculate_map(img_gt, img_pred, thresh, img_dims, BboxMetrics.strategy)
+                maps.append(_map)
+
+            eval[f'Precision@{disp_thresh}'] = np.mean(precisions)
+            eval[f'Recall@{disp_thresh}'] = np.mean(recalls)
+            eval[f'mAP@{disp_thresh}'] = np.mean(maps)
         
         return eval
 

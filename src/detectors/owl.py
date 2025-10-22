@@ -21,10 +21,11 @@ class OwlDetector(BaseDetector):
         model = OwlViTForObjectDetection.from_pretrained(model_id).to(self.device)
         return model, processor
 
-    def predict(self, image, class_map, **kwargs):
+    def predict(self, images, class_map, **kwargs):
         """
         Performs inference using the OwlViT model.
         """
+        n_img = len(images)
         text_prompts = list(class_map.keys())
         score_thresh = kwargs.get('score_thresh', 0.1)
         
@@ -32,31 +33,34 @@ class OwlDetector(BaseDetector):
         # It will be handled by the base class utility.
         # out_prompts = kwargs.get('out_prompts', text_prompts)
 
-        inputs = self.processor(text=[text_prompts], images=image, return_tensors="pt").to(self.device)
+        prompts = [text_prompts] * n_img
+
+        inputs = self.processor(text=prompts, images=images, return_tensors="pt").to(self.device)
         
         with torch.no_grad():
             outputs = self.model(**inputs)
 
-        target_sizes = torch.tensor([(image.height, image.width)]).to(self.device)
+        target_sizes = torch.tensor([(image.height, image.width) for image in images]).to(self.device)
         
-        # CORRECTED: Pass the original `text_prompts` to the post-processing function.
         results_raw = self.processor.post_process_grounded_object_detection(
             outputs=outputs,
             target_sizes=target_sizes,
             threshold=score_thresh,
-            text_labels=[text_prompts]  # This was the source of the error.
+            text_labels=prompts
         )
 
         # Standardize the output
         processed_results = []
-        result = results_raw[0]
-        for score, label, box in zip(result["scores"], result["text_labels"], result["boxes"]):
-            if label in class_map:
-                processed_results.append({
-                    "score": score.item(),
-                    "label": label,
-                    "box": box.tolist(),
-                    "class_index": class_map[label]
-                })
+        for result in results_raw:
+            processed_result = []
+            for score, label, box in zip(result["scores"], result["text_labels"], result["boxes"]):
+                if label in class_map:
+                    processed_result.append({
+                        "score": score.item(),
+                        "label": label,
+                        "box": box.tolist(),
+                        "class_index": class_map[label]
+                    })
+            processed_results.append(processed_result)
         return processed_results
 

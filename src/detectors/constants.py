@@ -1,12 +1,12 @@
 DINO_MODELS = {
-    'GDINO-TINY': 'IDEA-Research/grounding-dino-tiny'
+    'GDINO-TINY': 'IDEA-Research/grounding-dino-tiny',
+    'GDINO-BASE': 'IDEA-Research/grounding-dino-base',
 }
 
 OWL_MODELS = {
     'OWLVIT-BASE': 'google/owlvit-base-patch32'
 }
 
-# Replaced the old Hugging Face YOLO models with the Ultralytics ones
 YOLO_WORLD_MODELS = {
     'YOLO-S-WORLD': 'checkpoints/yolov8s-world.pt',
     'YOLO-V2-S-WORLD': 'checkpoints/yolov8s-worldv2.pt',

@@ -25,7 +25,7 @@ class GDinoDetector(BaseDetector):
         """
         text_for_model = list(class_map.keys())
         text_threshold = kwargs.get('text_threshold', 0.3)
-        box_threshold = kwargs.get('box_threshold', 0.35)
+        box_threshold = kwargs.get('threshold', 0.35)
 
         # The text input is a list of lists, one for each image in the batch
         text_inputs = [text_for_model] * len(images)

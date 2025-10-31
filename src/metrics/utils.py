@@ -65,7 +65,7 @@ def calculate_map(ground_truths, predictions, iou_threshold, img_dims, strategy)
     all_classes = sorted(list(set([gt[0] for gt in ground_truths] + [pred[0] for pred in predictions])))
 
     if not all_classes:
-        return 0.0, {}
+        return 0.0
 
     for c in all_classes:
         class_gts = [gt for gt in ground_truths if gt[0] == c]
@@ -120,7 +120,7 @@ def calculate_map(ground_truths, predictions, iou_threshold, img_dims, strategy)
         per_class_ap[c] = ap
         
     if not per_class_ap:
-        return 0.0, {}
+        return 0.0
         
     # Calculate mean AP from the dictionary values
     mean_ap = sum(per_class_ap.values()) / len(per_class_ap)

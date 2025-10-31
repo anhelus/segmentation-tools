@@ -121,7 +121,7 @@ if __name__ == "__main__":
 
     # --- Grounding DINO Parser ---
     dino_parser = subparsers.add_parser('dino', help='Use Grounding DINO model.', parents=[parent_parser])
-    dino_parser.add_argument('--model', type=str, default='GDINO-TINY', choices=constants.DINO_MODELS.keys())
+    dino_parser.add_argument('--model', type=str, default='GDINO-BASE', choices=constants.DINO_MODELS.keys())
     dino_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
     dino_parser.add_argument('--threshold', '-t', type=float, default=0.2, help='Confidence threshold for object detection box.')
     dino_parser.set_defaults(func=run_dino)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # --- OwlViT Parser ---
     owl_parser = subparsers.add_parser('owl', help='Use OwlViT model.', parents=[parent_parser])
     owl_parser.add_argument('--model', type=str, default='OWLVIT-BASE', choices=constants.OWL_MODELS.keys())
-    owl_parser.add_argument('--threshold', '-t', type=float, default=0.07, help='Detection confidence threshold.')
+    owl_parser.add_argument('--threshold', '-t', type=float, default=0.1, help='Detection confidence threshold.')
     owl_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
     owl_parser.set_defaults(func=run_owl)
 

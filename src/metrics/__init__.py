@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from src.metrics.utils import calculate_precision_recall, calculate_map, segmentation_iou, dice_score   
 from src.metrics.strategies import EvaluationStrategy, BboxStrategy, SegmentationStrategy
 import numpy as np
+import cv2
 
 
 class EvalMetrics(ABC):
@@ -48,30 +49,65 @@ class SegmentationMetrics(EvalMetrics):
     
     @staticmethod
     def evaluate(ground_truths, predictions, img_dims, thresh_list: list = [0.5, 0.75]):
-        n_gt = len(ground_truths)
         eval = {}
         
         for thresh in thresh_list:
             disp_thresh = int(thresh*100)
-            tot_p = tot_r = tot_map = 0
+            precisions, recalls, maps = [], [], []
             
             for img_gt, img_pred in zip(ground_truths, predictions):
-                pr = calculate_precision_recall(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
-                tot_p += pr[0]['precision']  # TODO adapt to multiclass
-                tot_r += pr[0]['recall']
-                tot_map += calculate_map(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
+                if not img_gt and not img_pred:
+                    continue
+
+                pr_dict = calculate_precision_recall(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
+
+                if pr_dict:
+                    precisions.append(pr_dict[0]['precision'])
+                    recalls.append(pr_dict[0]['recall'])
+                
+                _map = calculate_map(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
+                maps.append(_map)
             
-            eval[f'Precision@{disp_thresh}'] = tot_p / n_gt
-            eval[f'Recall@{disp_thresh}'] = tot_r / n_gt
-            eval[f'mAP@{disp_thresh}'] = tot_map / n_gt
+            eval[f'Precision@{disp_thresh}'] = np.mean(precisions)
+            eval[f'Recall@{disp_thresh}'] = np.mean(recalls)
+            eval[f'mAP@{disp_thresh}'] = np.mean(maps)
         
-        tot_iou = tot_dice = 0
+        iou_list, dice_list = [], []
         for img_gt, img_pred in zip(ground_truths, predictions):
-            tot_iou += segmentation_iou(ground_truths, predictions)
-            tot_dice += dice_score(ground_truths, predictions)
+            if not img_gt and not img_pred:
+                    continue
+            
+            prep_gt = SegmentationMetrics.strategy.prepare_image(img_gt, img_dims)
+            prep_pred = SegmentationMetrics.strategy.prepare_image(img_pred, img_dims)
+
+            # Display masks in a window (try OpenCV, fallback to matplotlib)
+            try:
+                gt_vis = (prep_gt * 255).astype('uint8')
+                pred_vis = (prep_pred * 255).astype('uint8')
+                if gt_vis.ndim == 2:
+                    gt_vis = cv2.cvtColor(gt_vis, cv2.COLOR_GRAY2BGR)
+                if pred_vis.ndim == 2:
+                    pred_vis = cv2.cvtColor(pred_vis, cv2.COLOR_GRAY2BGR)
+                vis = np.hstack((gt_vis, pred_vis))
+                cv2.imshow('GT | Pred', vis)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+            except Exception:
+                import matplotlib.pyplot as plt
+                fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+                axs[0].imshow(prep_gt, cmap='gray')
+                axs[0].set_title('GT')
+                axs[0].axis('off')
+                axs[1].imshow(prep_pred, cmap='gray')
+                axs[1].set_title('Pred')
+                axs[1].axis('off')
+                plt.show()
+            
+            iou_list.append(segmentation_iou(prep_gt, prep_pred))
+            dice_list.append(dice_score(prep_gt, prep_pred))
         
-        eval['IoU'] = tot_iou / n_gt   
-        eval['Dice'] = tot_dice / n_gt
+        eval['IoU'] = np.mean(iou_list) 
+        eval['Dice'] = np.mean(dice_list)
 
         return eval
 

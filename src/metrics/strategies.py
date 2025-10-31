@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import numpy as np
 from src.metrics.utils import bbox_iou, segmentation_iou, polygon_to_mask
 
 
@@ -32,6 +33,13 @@ class SegmentationStrategy(EvaluationStrategy):
         is_prediction = len(item) % 2 == 0
         polygon = item[1:-1] if is_prediction else item[1:]
         return polygon_to_mask(polygon, img_dims)
+
+    def prepare_image(self, img_items, img_dims):
+        prep_img = [self.prepare_item(item, img_dims) for item in img_items]
+        img_mask = np.zeros(img_dims, dtype=bool)
+        for mask in prep_img:
+            img_mask = np.logical_or(img_mask, mask)
+        return img_mask
 
     def calculate_overlap(self, prepared_gt, prepared_pred):
         return segmentation_iou(prepared_gt, prepared_pred)

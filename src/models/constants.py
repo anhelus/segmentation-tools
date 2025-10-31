@@ -19,3 +19,6 @@ SAM_MODELS = {
     'SAM-B': 'checkpoints/sam_b.pt',
     'SAM-2.1': 'checkpoints/sam2.1_l.pt'
 }
+
+DETECTION = "detection"
+SEGMENTATION = "segmentation"

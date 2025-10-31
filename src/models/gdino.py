@@ -1,11 +1,11 @@
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
-from src.detectors.base_detector import BaseDetector
-from src.metrics import BboxMetrics
+from src.models.base_model import BaseModel
+from src.models.constants import DETECTION
 import torch
 
-class GDinoDetector(BaseDetector):
+class GDinoDetector(BaseModel):
     def __init__(self, model_id):
-        self.metrics = BboxMetrics
+        self.model_type = DETECTION
         super().__init__(model_id)
 
     """

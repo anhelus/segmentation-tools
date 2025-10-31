@@ -1,17 +1,17 @@
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 from ultralytics import SAM
-from src.detectors.base_detector import BaseDetector
-from src.metrics import SegmentationMetrics
+from src.models.base_model import BaseModel
+from src.models.constants import SEGMENTATION
 import torch
 import numpy as np
 
-class GroundedSamDetector(BaseDetector):
+class GroundedSamDetector(BaseModel):
     """
     Detector class for the Grounded SAM pipeline.
     Uses Transformers for Grounding DINO and Ultralytics for SAM.
     """
     def __init__(self, model_id):
-        self.metrics = SegmentationMetrics
+        self.model_type = SEGMENTATION
         super().__init__(model_id)
     
 
@@ -28,6 +28,10 @@ class GroundedSamDetector(BaseDetector):
         sam_model.to(self.device)
 
         return {"dino": dino_model, "sam": sam_model}, dino_processor
+    
+
+    def model_identifier(self):
+        return self.model_id["dino"] + " ==> " + self.model_id["sam"]
     
 
     def predict(self, images, class_map, precomputed_boxes=None, **kwargs):
@@ -49,8 +53,8 @@ class GroundedSamDetector(BaseDetector):
         else:
             # MODE 2: Run Grounding DINO to get boxes
             text_for_model = list(class_map.keys())
-            text_threshold = kwargs.get('text_threshold', 0.3)
-            box_threshold = kwargs.get('threshold', 0.35)
+            text_threshold = kwargs.get('text_threshold', 0.25)
+            box_threshold = kwargs.get('box_threshold', 0.2)
             text_inputs = [text_for_model] * len(images)
 
             # --- 1. Grounding DINO Prediction (Batched) ---

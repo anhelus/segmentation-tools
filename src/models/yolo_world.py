@@ -1,14 +1,14 @@
 from ultralytics import YOLOWorld
-from src.detectors.base_detector import BaseDetector
-from src.metrics import BboxMetrics
+from src.models.base_model import BaseModel
+from src.models.constants import DETECTION
 
 
-class YoloWorldDetector(BaseDetector):
+class YoloWorldDetector(BaseModel):
     """
     Detector class for the YOLO-World model from the Ultralytics library.
     """
     def __init__(self, model_id):
-        self.metrics = BboxMetrics
+        self.model_type = DETECTION
         super().__init__(model_id)
     
     

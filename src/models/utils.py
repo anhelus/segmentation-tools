@@ -205,11 +205,16 @@ def load_yolo_gt(gt_directory, img_dims):
         with open(label_file, 'r') as f:
             for line in f:
                 parts = line.strip().split()
+
                 if len(parts) == 5: # class_id x_center y_center width height
                     yolo_class = int(parts[0])
                     yolo_coords = [float(p) for p in parts[1:]]
-                    xyxy_box = yolo_to_xyxy(yolo_coords, image_width, image_height)
-                gt.append([yolo_class, *xyxy_box])
+                    points_xy = yolo_to_xyxy(yolo_coords, image_width, image_height)
+                elif len(parts) > 5: # class_id x1 y1 x2 y2 ...
+                    yolo_class = int(parts[0])
+                    points_xy = [float(p) for p in parts[1:]]
+
+                gt.append([yolo_class, *points_xy])
         gt_list.append(gt)
     return gt_list
 
@@ -238,7 +243,7 @@ def save_labels(batch_images, batch_paths, batch_results, output_root):
                     if yolo_data:
                         out_file.write(f"{result['class_index']} {yolo_data}\n")
 
-        # --- Save labeled visualization ---
+        # TODO make labeled images saving optional
         labeled_image_path = labeled_dir / path.name
         if not results:
             shutil.copy(path, labeled_image_path)
@@ -252,3 +257,4 @@ def save_metrics(eval_metrics, output_root):
     metrics_path = output_root / 'metrics.json'
     with open(metrics_path, 'w') as f:
         json.dump(eval_metrics, f)
+

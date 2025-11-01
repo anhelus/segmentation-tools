@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from src.metrics.utils import calculate_precision_recall, calculate_map, segmentation_iou, dice_score   
 from src.metrics.strategies import EvaluationStrategy, BboxStrategy, SegmentationStrategy
 import numpy as np
-import cv2
 
 
 class EvalMetrics(ABC):
@@ -60,29 +59,6 @@ class SegmentationMetrics(EvalMetrics):
             prep_gt = SegmentationMetrics.strategy.merge_masks(prep_gt, img_dims)
             prep_pred = [SegmentationMetrics.strategy.prepare_item(item, img_dims) for item in img_pred]
             prep_pred = SegmentationMetrics.strategy.merge_masks(prep_pred, img_dims)
-
-            # Display masks in a window (try OpenCV, fallback to matplotlib)
-            try:
-                gt_vis = (prep_gt * 255).astype('uint8')
-                pred_vis = (prep_pred * 255).astype('uint8')
-                if gt_vis.ndim == 2:
-                    gt_vis = cv2.cvtColor(gt_vis, cv2.COLOR_GRAY2BGR)
-                if pred_vis.ndim == 2:
-                    pred_vis = cv2.cvtColor(pred_vis, cv2.COLOR_GRAY2BGR)
-                vis = np.hstack((gt_vis, pred_vis))
-                cv2.imshow('GT | Pred', vis)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
-            except Exception:
-                import matplotlib.pyplot as plt
-                fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-                axs[0].imshow(prep_gt, cmap='gray')
-                axs[0].set_title('GT')
-                axs[0].axis('off')
-                axs[1].imshow(prep_pred, cmap='gray')
-                axs[1].set_title('Pred')
-                axs[1].axis('off')
-                plt.show()
             
             iou_list.append(segmentation_iou(prep_gt, prep_pred))
             dice_list.append(dice_score(prep_gt, prep_pred))

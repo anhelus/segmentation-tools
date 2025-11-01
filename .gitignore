@@ -6,6 +6,7 @@ __pycache__/
 checkpoints/
 json_tasks_utilities/
 
+.idea/
 .vscode/
 
 *.pt

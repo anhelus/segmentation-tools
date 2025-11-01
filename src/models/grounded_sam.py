@@ -4,6 +4,7 @@ from src.models.base_model import BaseModel
 from src.models.constants import SEGMENTATION
 import torch
 import numpy as np
+import cv2
 
 class GroundedSamDetector(BaseModel):
     """
@@ -102,6 +103,10 @@ class GroundedSamDetector(BaseModel):
                         score = dino_results["scores"][i]
                         label = dino_results["text_labels"][i]
                         box = dino_results["boxes"][i]
+
+                        height, width = image.size
+                        mask = sam_masks[i].squeeze().astype(np.uint8)
+                        # mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
                         
                         if label in class_map:
                             processed_for_image.append({
@@ -109,10 +114,9 @@ class GroundedSamDetector(BaseModel):
                                 "label": label,
                                 "box": box.tolist(),
                                 "class_index": class_map[label],
-                                "mask": sam_masks[i].squeeze().astype(np.uint8)
+                                "mask": mask
                             })
             
             all_processed_results.append(processed_for_image)
             
         return all_processed_results
-

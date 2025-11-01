@@ -64,9 +64,9 @@ class BaseModel(ABC):
         
         if save_metrics:
             if self.model_type == DETECTION:
-                pred_list = lambda preds: [preds["class_index"], *preds["box"], preds["score"]]
+                pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
             elif self.model_type == SEGMENTATION:
-                pred_list = lambda preds: [preds["class_index"], *preds["mask"], preds["score"]]
+                pred_list = lambda pred: [pred["class_index"], pred["mask"], pred["score"]]
         
         print(f"Found {len(image_paths)} images. Starting processing with batch size {batch_size}...")
         
@@ -95,7 +95,7 @@ class BaseModel(ABC):
         print(f"Average inference time per batch: {avg_time:.2f} seconds")
 
         if save_metrics:
-            img_dims=kwargs.get('image_size', [1280, 720])
+            img_dims=kwargs.get('image_size', [720, 1280])
             ground_truths = utils.load_yolo_gt(directory_path, img_dims)
 
             eval = {}

@@ -197,7 +197,7 @@ def draw_boxes_and_masks(image, results, output_path):
 
 
 def load_yolo_gt(gt_directory, img_dims):
-    image_width, image_height = img_dims
+    image_height, image_width = img_dims
     gt_list = []
     labels_dir = gt_directory / "labels"
     for label_file in labels_dir.glob("*.txt"):

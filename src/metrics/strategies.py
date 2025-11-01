@@ -26,18 +26,22 @@ class BboxStrategy(EvaluationStrategy):
 class SegmentationStrategy(EvaluationStrategy):
     """Evaluation strategy for segmentations."""
     def prepare_item(self, item, img_dims):
-        # Prediction format: [class, x1, y1,..., conf]
+        # Prediction format: [class, mask, conf]
         # Ground Truth format: [class, x1, y1,...]
         # The polygon is all elements between the class_id and the potential confidence score.
         
-        is_prediction = len(item) % 2 == 0
-        polygon = item[1:-1] if is_prediction else item[1:]
-        return polygon_to_mask(polygon, img_dims)
+        is_prediction = len(item) == 3
 
-    def prepare_image(self, img_items, img_dims):
-        prep_img = [self.prepare_item(item, img_dims) for item in img_items]
-        img_mask = np.zeros(img_dims, dtype=bool)
-        for mask in prep_img:
+        if is_prediction:
+            return item[1]
+        else:
+            polygon = item[1:-1] if is_prediction else item[1:]
+            return polygon_to_mask(polygon, img_dims)
+
+    def merge_masks(self, img_items, img_dims):
+        h, w = img_dims
+        img_mask = np.zeros((h, w), dtype=bool)
+        for mask in img_items:
             img_mask = np.logical_or(img_mask, mask)
         return img_mask
 

@@ -51,34 +51,15 @@ class SegmentationMetrics(EvalMetrics):
     def evaluate(ground_truths, predictions, img_dims, thresh_list: list = [0.5, 0.75]):
         eval = {}
         
-        for thresh in thresh_list:
-            disp_thresh = int(thresh*100)
-            precisions, recalls, maps = [], [], []
-            
-            for img_gt, img_pred in zip(ground_truths, predictions):
-                if not img_gt and not img_pred:
-                    continue
-
-                pr_dict = calculate_precision_recall(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
-
-                if pr_dict:
-                    precisions.append(pr_dict[0]['precision'])
-                    recalls.append(pr_dict[0]['recall'])
-                
-                _map = calculate_map(img_gt, img_pred, thresh, img_dims, SegmentationMetrics.strategy)
-                maps.append(_map)
-            
-            eval[f'Precision@{disp_thresh}'] = np.mean(precisions)
-            eval[f'Recall@{disp_thresh}'] = np.mean(recalls)
-            eval[f'mAP@{disp_thresh}'] = np.mean(maps)
-        
         iou_list, dice_list = [], []
         for img_gt, img_pred in zip(ground_truths, predictions):
             if not img_gt and not img_pred:
                     continue
-            
-            prep_gt = SegmentationMetrics.strategy.prepare_image(img_gt, img_dims)
-            prep_pred = SegmentationMetrics.strategy.prepare_image(img_pred, img_dims)
+
+            prep_gt = [SegmentationMetrics.strategy.prepare_item(item, img_dims) for item in img_gt]
+            prep_gt = SegmentationMetrics.strategy.merge_masks(prep_gt, img_dims)
+            prep_pred = [SegmentationMetrics.strategy.prepare_item(item, img_dims) for item in img_pred]
+            prep_pred = SegmentationMetrics.strategy.merge_masks(prep_pred, img_dims)
 
             # Display masks in a window (try OpenCV, fallback to matplotlib)
             try:

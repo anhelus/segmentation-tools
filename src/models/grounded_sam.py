@@ -68,8 +68,11 @@ class GroundedSamDetector(BaseModel):
 
             target_sizes = [image.size[::-1] for image in images]
             dino_results_raw = self.processor.post_process_grounded_object_detection(
-                dino_outputs, dino_inputs.input_ids, target_sizes=target_sizes,
-                threshold=box_threshold, text_threshold=text_threshold
+                dino_outputs,
+                dino_inputs.input_ids,
+                target_sizes=target_sizes,
+                threshold=box_threshold,
+                text_threshold=text_threshold
             )
 
         all_processed_results = []
@@ -104,9 +107,7 @@ class GroundedSamDetector(BaseModel):
                         label = dino_results["text_labels"][i]
                         box = dino_results["boxes"][i]
 
-                        height, width = image.size
                         mask = sam_masks[i].squeeze().astype(np.uint8)
-                        # mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
                         
                         if label in class_map:
                             processed_for_image.append({

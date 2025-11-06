@@ -62,17 +62,16 @@ class BaseModel(ABC):
             except FileExistsError:
                 pass
         
-        if save_metrics:
-            if self.model_type == DETECTION:
-                pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
-            elif self.model_type == SEGMENTATION:
-                pred_list = lambda pred: [pred["class_index"], pred["mask"], pred["score"]]
-        
         print(f"Found {len(image_paths)} images. Starting processing with batch size {batch_size}...")
         
         num_batches = (len(image_paths) + batch_size - 1) // batch_size
         elapsed_times = []
-        aggregated_predictions = []
+
+        if save_metrics or save_pred:
+            prediction_data = {
+                "images": [],
+                "results": []
+            }
 
         for i in tqdm(range(num_batches), desc=f"Processing batches for {model_name}"):
             batch_paths = image_paths[i*batch_size : (i+1)*batch_size]
@@ -83,30 +82,46 @@ class BaseModel(ABC):
             batch_results = self.predict(batch_images, class_map, **predict_kwargs)
             elapsed_time = time.time() - start_time
             elapsed_times.append(elapsed_time)
-
-            if save_metrics:
-                for sample_result in batch_results:
-                    aggregated_predictions.append([pred_list(prediction) for prediction in sample_result])
             
-            if save_pred: # TODO da spostare fuori dal loop per non interferire con il calcolo del tempo
-                utils.save_labels(batch_images, batch_paths, batch_results, output_root)
+            if save_pred:
+                prediction_data["images"].extend(batch_images)
+            if save_pred or save_metrics:
+                prediction_data["results"].extend(batch_results)
         
         avg_time = sum(elapsed_times) / len(elapsed_times)
         print(f"Average inference time per batch: {avg_time:.2f} seconds")
 
+        if save_pred:
+            utils.save_labels(prediction_data["images"], image_paths, prediction_data["results"], output_root)
+
         if save_metrics:
             img_dims=kwargs.get('image_size', [720, 1280])
+
+            print("Loading ground truth data for evaluation...")
             ground_truths = utils.load_yolo_gt(directory_path, img_dims)
+
+            if self.model_type == DETECTION:
+                pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
+            elif self.model_type == SEGMENTATION:
+                pred_list = lambda pred: [pred["class_index"], pred["mask"], pred["score"]]
+
+            print("Preparing predictions for evaluation...")
+            predictions = [
+                [pred_list(prediction) for prediction in image_result]
+                for image_result in prediction_data["results"]
+            ]
 
             eval = {}
             eval["model_name"] = self.model_identifier()
             eval["batch_size"] = batch_size
             eval.update(kwargs)
             eval["average_inference_time"] = avg_time
-            metrics = self.metrics.evaluate(ground_truths, aggregated_predictions, img_dims, thresh_list=kwargs.get('map_thresh_list', [0.5, 0.75]))
+            metrics = self.metrics.evaluate(ground_truths, predictions, img_dims, thresh_list=kwargs.get('map_thresh_list', [0.5, 0.75]))
             eval.update(metrics)
 
             utils.save_metrics(eval, output_root)
+
+            print("Evaluation metrics saved.")
 
         return output_root if save_pred else None
     

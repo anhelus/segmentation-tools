@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from src.metrics.utils import calculate_precision_recall, calculate_map, segmentation_iou, dice_score   
 from src.metrics.strategies import EvaluationStrategy, BboxStrategy, SegmentationStrategy
 import numpy as np
+from tqdm import tqdm
 
 
 class EvalMetrics(ABC):
@@ -22,8 +23,9 @@ class BboxMetrics(EvalMetrics):
         for thresh in thresh_list:
             disp_thresh = int(thresh*100)
             precisions, recalls, maps = [], [], []
-            
-            for img_gt, img_pred in zip(ground_truths, predictions):
+            loop_desc = f"Computing detection metrics with threshold {disp_thresh}"
+
+            for img_gt, img_pred in tqdm(zip(ground_truths, predictions), total=len(ground_truths), desc=loop_desc, unit="img"):
                 if not img_gt and not img_pred:
                     continue
                 
@@ -49,9 +51,10 @@ class SegmentationMetrics(EvalMetrics):
     @staticmethod
     def evaluate(ground_truths, predictions, img_dims, thresh_list: list = [0.5, 0.75]):
         eval = {}
-        
         iou_list, dice_list = [], []
-        for img_gt, img_pred in zip(ground_truths, predictions):
+        loop_desc = "Computing segmentation metrics"
+
+        for img_gt, img_pred in tqdm(zip(ground_truths, predictions), total=len(ground_truths), desc=loop_desc, unit="img"):
             if not img_gt and not img_pred:
                     continue
 

@@ -5,6 +5,7 @@ import yaml
 import numpy as np
 import json
 from PIL import Image, ImageDraw, ImageFont
+from tqdm import tqdm
 
 
 def find_image_paths(directory_path):
@@ -175,7 +176,6 @@ def draw_boxes_and_masks(image, results, output_path):
         mask = result.get('mask')
         color = label_colors[label]
 
-        # CORRECTED: Always use the original bounding box from the result.
         box = [int(c) for c in result['box']]
 
         # Draw mask contour for better visibility
@@ -219,38 +219,38 @@ def load_yolo_gt(gt_directory, img_dims):
     return gt_list
 
 
-def save_labels(batch_images, batch_paths, batch_results, output_root):
+def save_labels(images, paths, results, output_root):
     labels_dir = output_root / 'labels'
     labeled_dir = output_root / 'labeled'
 
     labels_dir.mkdir(exist_ok=True)
-    labeled_dir.mkdir(exist_ok=True)
+    labeled_dir.mkdir(exist_ok=True) # TODO make labeled images saving optional
 
-    for image, path, results in zip(batch_images, batch_paths, batch_results):
-        # --- Save annotation file ---
+    for image, path, image_results in tqdm(zip(images, paths, results), total=len(images), desc="Saving labels", unit="img"):
         yolo_output_path = labels_dir / f'{path.stem}.txt'
+        labeled_image_path = labeled_dir / path.name
+        
         with yolo_output_path.open("w") as out_file:
-            if results:
-                for result in results:
-                    if 'mask' in result and result['mask'] is not None:
-                        yolo_data = mask_to_yolo_segmentation(
-                            result['mask'], image.width, image.height
-                        )
+            if image_results:
+                for image_result in image_results:
+                    has_segmentation = image_result.get('mask') is not None
+
+                    if has_segmentation:
+                        yolo_data = mask_to_yolo_segmentation(image_result['mask'], image.width, image.height)
                     else:
-                        yolo_box = convert_to_yolo_format(result['box'], image.size)
+                        yolo_box = convert_to_yolo_format(image_result['box'], image.size)
                         yolo_data = " ".join(f'{c:.6f}' for c in yolo_box)
 
                     if yolo_data:
-                        out_file.write(f"{result['class_index']} {yolo_data}\n")
+                        out_file.write(f"{image_result['class_index']} {yolo_data}\n")
+            else:
+                shutil.copy(path, labeled_image_path)
+                continue
 
-        # TODO make labeled images saving optional
-        labeled_image_path = labeled_dir / path.name
-        if not results:
-            shutil.copy(path, labeled_image_path)
-        elif 'mask' in results[0] and results[0]['mask'] is not None:
-            draw_boxes_and_masks(image, results, labeled_image_path)
+        if image_results[0].get('mask') is not None:
+            draw_boxes_and_masks(image, image_results, labeled_image_path)
         else:
-            draw_boxes(image, results, labeled_image_path)
+            draw_boxes(image, image_results, labeled_image_path)
 
 
 def save_metrics(eval_metrics, output_root):

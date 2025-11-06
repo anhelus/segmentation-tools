@@ -1,4 +1,4 @@
-from transformers import OwlViTProcessor, OwlViTForObjectDetection
+from transformers import OwlViTProcessor, OwlViTForObjectDetection, Owlv2Processor, Owlv2ForObjectDetection
 from src.models.base_model import BaseModel
 from src.models.constants import DETECTION
 
@@ -17,8 +17,15 @@ class OwlDetector(BaseModel):
         """
         Loads the OwlViT model and processor.
         """
-        processor = OwlViTProcessor.from_pretrained(model_id)
-        model = OwlViTForObjectDetection.from_pretrained(model_id).to(self.device)
+        if model_id.startswith('google/owlv2'):
+            processor = Owlv2Processor.from_pretrained(model_id)
+            model = Owlv2ForObjectDetection.from_pretrained(model_id).to(self.device)
+        elif model_id.startswith('google/owlvit'):
+            processor = OwlViTProcessor.from_pretrained(model_id)
+            model = OwlViTForObjectDetection.from_pretrained(model_id).to(self.device)
+        else:
+            raise ValueError(f"Unsupported model_id for OwlDetector: {model_id}")
+        
         return model, processor
 
     def predict(self, images, class_map, **kwargs):
@@ -28,10 +35,6 @@ class OwlDetector(BaseModel):
         n_img = len(images)
         text_prompts = list(class_map.keys())
         score_thresh = kwargs.get('score_thresh', 0.1)
-        
-        # This argument is no longer needed for post-processing, only for drawing.
-        # It will be handled by the base class utility.
-        # out_prompts = kwargs.get('out_prompts', text_prompts)
 
         prompts = [text_prompts] * n_img
 
@@ -48,8 +51,7 @@ class OwlDetector(BaseModel):
             threshold=score_thresh,
             text_labels=prompts
         )
-
-        # Standardize the output
+        
         processed_results = []
         for result in results_raw:
             processed_result = []

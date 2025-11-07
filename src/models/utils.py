@@ -256,5 +256,5 @@ def save_labels(images, paths, results, output_root):
 def save_metrics(eval_metrics, output_root):
     metrics_path = output_root / 'metrics.json'
     with open(metrics_path, 'w') as f:
-        json.dump(eval_metrics, f)
+        json.dump(eval_metrics, f, indent=4)
 

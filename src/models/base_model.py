@@ -30,13 +30,13 @@ class BaseModel(ABC):
     
 
     @abstractmethod
-    def model_identifier(self):
-        """Returns the name of the model."""
+    def train(self, **kwargs):
+        """Trains the model. To be implemented in subclasses."""
         pass
 
 
     def model_identifier(self):
-        return self.model_id
+        return self.model_id.split('/')[-1].replace(".pt", "")
 
 
     def process_directory(self, directory_path, model_name, class_map, batch_size=8, **kwargs):
@@ -53,7 +53,12 @@ class BaseModel(ABC):
             print(f"No images found in {directory_path}. Exiting.")
             return None
         
-        output_root = directory_path.parent / model_name
+        output_name = kwargs.get('output_name')
+
+        if not output_name:
+            output_name = self.model_identifier() + "_" + time.strftime("%Y-%m-%d_%H-%M-%S")
+        
+        output_root = directory_path.parent / output_name
         output_root.mkdir(exist_ok=True)
         
         if save_pred:
@@ -112,7 +117,7 @@ class BaseModel(ABC):
             ]
 
             eval = {}
-            eval["model_name"] = self.model_identifier()
+            eval["model_id"] = self.model_identifier()
             eval["batch_size"] = batch_size
             eval.update(kwargs)
             eval["average_inference_time"] = avg_time

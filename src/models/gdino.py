@@ -1,7 +1,45 @@
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 from src.models.base_model import BaseModel
-from src.models.constants import DETECTION
+from src.models.constants import DINO_MODELS, DETECTION
 import torch
+
+
+def run_dino(args):
+    """Configures and runs the Grounding DINO detector."""
+    print("Initializing Grounding DINO detector...")
+    model_id = DINO_MODELS[args.model]
+    class_map = {label: idx for idx, label in enumerate(args.class_names)}
+    detector = GDinoDetector(model_id)
+
+    return detector.process_directory(
+        directory_path=args.bbox_gt,
+        model_name=args.model_type,
+        class_map=class_map,
+        batch_size=args.batch_size,
+        text_threshold=args.text_threshold,
+        box_threshold=args.box_threshold,
+        pred_only=args.save_predictions_only,
+        metrics_only=args.save_metrics_only,
+        image_size=args.image_size,
+        map_thresh_list=args.map_thresh
+    )
+
+
+def train_dino(args):
+    pass
+
+
+def add_dino_parser(subparsers, parent_parser, train=False):
+    dino_parser = subparsers.add_parser('dino', help='Use Grounding DINO model.', parents=[parent_parser])
+    dino_parser.add_argument('--model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
+    dino_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
+    dino_parser.add_argument('--box-threshold', '-t', type=float, default=0.2, help='Confidence threshold for object detection box.')
+    
+    if train:
+        dino_parser.set_defaults(func=train_dino)
+    else:
+        dino_parser.set_defaults(func=run_dino)
+
 
 class GDinoDetector(BaseModel):
     def __init__(self, model_id):
@@ -66,3 +104,5 @@ class GDinoDetector(BaseModel):
             
         return all_processed_results
 
+    def train(self, **kwargs):
+        pass

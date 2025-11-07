@@ -1,8 +1,44 @@
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, Owlv2Processor, Owlv2ForObjectDetection
 from src.models.base_model import BaseModel
-from src.models.constants import DETECTION
-
+from src.models.constants import OWL_MODELS, DETECTION
 import torch
+
+
+def run_owl(args):
+    """Configures and runs the OwlViT detector."""
+    print("Initializing OwlViT detector...")
+    model_id = OWL_MODELS[args.model]
+    class_map = {k: 0 for k in args.prompts}
+    out_labels = args.class_names if args.class_names is not None else list(class_map.keys())
+    detector = OwlDetector(model_id)
+
+    return detector.process_directory(
+        directory_path=args.bbox_gt,
+        model_name=args.model_type,
+        class_map=class_map,
+        score_threshold=args.score_threshold,
+        pred_only=args.save_predictions_only,
+        metrics_only=args.save_metrics_only,
+        out_prompts=out_labels,
+        batch_size=args.batch_size,
+    )
+
+
+def train_owl(args):
+    pass
+
+
+def add_owl_parser(subparsers, parent_parser, train=False):
+    owl_parser = subparsers.add_parser('owl', help='Use OwlViT model.', parents=[parent_parser])
+    owl_parser.add_argument('--model', type=str, default='OWLVIT-BASE-32', choices=OWL_MODELS.keys())
+    owl_parser.add_argument('--score-threshold', '-t', type=float, default=0.1, help='Detection confidence threshold.')
+    owl_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
+
+    if train:
+        owl_parser.set_defaults(func=train_owl)
+    else:
+        owl_parser.set_defaults(func=run_owl)
+
 
 class OwlDetector(BaseModel):
     """
@@ -66,3 +102,5 @@ class OwlDetector(BaseModel):
             processed_results.append(processed_result)
         return processed_results
 
+    def train(self, **kwargs):
+        pass

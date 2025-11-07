@@ -1,10 +1,70 @@
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 from ultralytics import SAM
 from src.models.base_model import BaseModel
-from src.models.constants import SEGMENTATION
+from src.models.constants import DINO_MODELS, SAM_MODELS, SEGMENTATION
 import torch
 import numpy as np
-import cv2
+
+
+def run_grounded_sam(args):
+    """Configures and runs the Grounded SAM detector."""
+    print("Initializing Grounded SAM detector...")
+    model_id = {
+        'dino': DINO_MODELS[args.dino_model],
+        'sam': SAM_MODELS[args.sam_model]
+    }
+    class_map = {label: idx for idx, label in enumerate(args.class_names)}
+    detector = GroundedSamDetector(model_id)
+
+    if args.precomputed_boxes:
+        print(f"Running SAM only, using existing labels from: {args.precomputed_boxes}")
+        
+        # TODO da rivedere completamente
+        return detector.process_precomputed_boxes(
+            directory_path=args.bbox_gt,
+            model_name=args.model_type,
+            class_map=class_map,
+            batch_size=args.batch_size
+        )
+    
+    print("Running full Grounded SAM pipeline (DINO + SAM)...")
+
+    return detector.process_directory(
+        directory_path=args.seg_gt,
+        model_name=args.model_type,
+        class_map=class_map,
+        batch_size=args.batch_size,
+        text_threshold=args.text_threshold,
+        box_threshold=args.box_threshold,
+        pred_only=args.save_predictions_only,
+        metrics_only=args.save_metrics_only,
+        image_size=args.image_size,
+        map_thresh_list=args.map_thresh
+    )
+
+
+def train_grounded_sam(args):
+    """Placeholder for training Grounded SAM - Not implemented."""
+    print("Training Grounded SAM is not implemented yet.")
+    pass
+
+
+def add_grounded_sam_parser(subparsers, parent_parser, train=False):
+    grounded_sam_parser = subparsers.add_parser('grounded_sam', help='Use Grounded SAM pipeline.', parents=[parent_parser])
+    grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
+    grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=SAM_MODELS.keys())
+    grounded_sam_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
+    grounded_sam_parser.add_argument('--box-threshold', '-t', type=float, default=0.2, help='Confidence threshold for object detection box.')
+    grounded_sam_parser.add_argument(
+        '--precomputed-boxes', action="store_true", default=None,
+        help='Wether to skip the DINO step and use the boxes in dataset_path/bbox_ground_truth for SAM.'
+    )
+    
+    if train:
+        grounded_sam_parser.set_defaults(func=train_grounded_sam)
+    else:
+        grounded_sam_parser.set_defaults(func=run_grounded_sam)
+
 
 class GroundedSamDetector(BaseModel):
     """
@@ -32,7 +92,9 @@ class GroundedSamDetector(BaseModel):
     
 
     def model_identifier(self):
-        return self.model_id["dino"] + " ==> " + self.model_id["sam"]
+        dino_id = self.model_id["dino"].split('-')[-1]
+        sam_id = self.model_id["sam"].split('/')[-1].replace(".pt", "")
+        return f"grounded_sam[{dino_id}+{sam_id}]"
     
 
     def predict(self, images, class_map, precomputed_boxes=None, **kwargs):
@@ -121,3 +183,7 @@ class GroundedSamDetector(BaseModel):
             all_processed_results.append(processed_for_image)
             
         return all_processed_results
+
+
+    def train(self, **kwargs):
+        pass

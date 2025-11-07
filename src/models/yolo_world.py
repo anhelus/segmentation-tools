@@ -1,6 +1,57 @@
 from ultralytics import YOLOWorld
 from src.models.base_model import BaseModel
-from src.models.constants import DETECTION
+from src.models.constants import YOLO_WORLD_MODELS, DETECTION
+import json
+
+
+def run_yolo_world(args):
+    """Configures and runs the Ultralytics YOLO-World detector."""
+    print("Initializing Ultralytics YOLO-World detector...")
+    model_id = YOLO_WORLD_MODELS[args.model]
+    class_map = {k: 0 for k in args.prompts}
+    detector = YoloWorldDetector(model_id)
+    
+    print(f"Setting model classes to: {list(class_map.keys())}")
+    detector.model.set_classes(list(class_map.keys()))
+
+    return detector.process_directory(
+        directory_path=args.bbox_gt,
+        model_name=args.model_type,
+        class_map=class_map,
+        score_thresh=args.score_threshold,
+        batch_size=args.batch_size,
+        pred_only=args.save_predictions_only,
+        metrics_only=args.save_metrics_only,
+    )
+
+
+def train_yolo_world(args):
+    """Configures and trains the Ultralytics YOLO-World detector."""
+    print("Initializing Ultralytics YOLO-World detector...")
+    model_id = YOLO_WORLD_MODELS[args.model]
+    class_map = {k: 0 for k in args.prompts}
+    detector = YoloWorldDetector(model_id)
+    
+    print(f"Setting model classes to: {list(class_map.keys())}")
+    detector.model.set_classes(list(class_map.keys()))
+
+    return detector.train(args)
+
+
+def add_yolo_world_parser(subparsers, parent_parser, train=False):
+    yolo_parser = subparsers.add_parser('yolo_world', help='Use Ultralytics YOLO-World model.', parents=[parent_parser])
+    
+    if train:
+        yolo_parser.add_argument('--yaml-path', type=str, help='Path to the Ultralytics dataset configuration YAML.')
+    
+    yolo_parser.add_argument('--model', type=str, default='YOLO-X-WORLD', choices=YOLO_WORLD_MODELS.keys())
+    yolo_parser.add_argument('--score-threshold', '-t', type=float, default=0.05, help='Detection confidence threshold.')
+    yolo_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
+    
+    if train:
+        yolo_parser.set_defaults(func=train_yolo_world)
+    else:
+        yolo_parser.set_defaults(func=run_yolo_world)
 
 
 class YoloWorldDetector(BaseModel):
@@ -18,8 +69,8 @@ class YoloWorldDetector(BaseModel):
         The processor is integrated into the model object in this library.
         """
         model = YOLOWorld(model_id)
-        # No separate processor object is needed for this implementation
         return model, None
+
 
     def predict(self, images, class_map, **kwargs):
         """
@@ -28,7 +79,6 @@ class YoloWorldDetector(BaseModel):
         """
         score_thresh = kwargs.get('score_thresh', 0.05)
 
-        # The model.predict method can take a list of PIL images directly
         results_batch = self.model.predict(images, conf=score_thresh, verbose=False)
 
         all_processed_results = []
@@ -61,4 +111,20 @@ class YoloWorldDetector(BaseModel):
             all_processed_results.append(processed_for_image)
             
         return all_processed_results
+
+
+    def train(self, args):
+        """
+        Trains the YOLO-World model using the Ultralytics library's built-in training method.
+        Additional training parameters can be passed via kwargs.
+        """
+        
+        metrics = self.model.train(
+            data=args.yaml_path,
+            batch=args.batch_size,
+            imgsz=args.image_size,
+        )
+
+        if metrics:
+            print(json.dumps(metrics, indent=4))
 

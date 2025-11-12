@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 from src.models.utils import parse_cfg
 from src.models.gdino import add_dino_parser
 from src.models.owl import add_owl_parser

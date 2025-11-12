@@ -7,10 +7,7 @@ import torch
 def run_owl(args):
     """Configures and runs the OwlViT detector."""
     print("Initializing OwlViT detector...")
-    model_id = OWL_MODELS[args.model]
-    class_map = {k: 0 for k in args.prompts}
-    out_labels = args.class_names if args.class_names is not None else list(class_map.keys())
-    detector = OwlDetector(model_id)
+    detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
 
     return detector.process_directory(
         directory_path=args.bbox_gt,
@@ -25,7 +22,10 @@ def run_owl(args):
 
 
 def train_owl(args):
+    print("Initializing OwlViT detector...")
+    detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
     pass
+    
 
 
 def add_owl_parser(subparsers, parent_parser, train=False):
@@ -104,3 +104,10 @@ class OwlDetector(BaseModel):
 
     def train(self, **kwargs):
         pass
+
+    @staticmethod
+    def load_detector(model_key, prompts, class_names):
+        model_id = OWL_MODELS[model_key]
+        class_map = {k: 0 for k in prompts}
+        out_labels = class_names if class_names is not None else list(class_map.keys())
+        return OwlDetector(model_id), class_map, out_labels

@@ -6,13 +6,7 @@ import json
 
 def run_yolo_world(args):
     """Configures and runs the Ultralytics YOLO-World detector."""
-    print("Initializing Ultralytics YOLO-World detector...")
-    model_id = YOLO_WORLD_MODELS[args.model]
-    class_map = {k: 0 for k in args.prompts}
-    detector = YoloWorldDetector(model_id)
-    
-    print(f"Setting model classes to: {list(class_map.keys())}")
-    detector.model.set_classes(list(class_map.keys()))
+    detector, class_map = YoloWorldDetector.load_detector(args.model, args.prompts)
 
     return detector.process_directory(
         directory_path=args.bbox_gt,
@@ -28,12 +22,7 @@ def run_yolo_world(args):
 def train_yolo_world(args):
     """Configures and trains the Ultralytics YOLO-World detector."""
     print("Initializing Ultralytics YOLO-World detector...")
-    model_id = YOLO_WORLD_MODELS[args.model]
-    class_map = {k: 0 for k in args.prompts}
-    detector = YoloWorldDetector(model_id)
-    
-    print(f"Setting model classes to: {list(class_map.keys())}")
-    detector.model.set_classes(list(class_map.keys()))
+    detector, _ = YoloWorldDetector.load_model(args.model, args.prompts)
 
     return detector.train(args)
 
@@ -127,4 +116,16 @@ class YoloWorldDetector(BaseModel):
 
         if metrics:
             print(json.dumps(metrics, indent=4))
+    
+
+    @staticmethod
+    def load_detector(model_key, prompts):
+        print("Loading Ultralytics YOLO-World detector...")
+        model_id = YOLO_WORLD_MODELS[model_key]
+        class_map = {k: 0 for k in prompts}
+        detector = YoloWorldDetector(model_id)
+        
+        print(f"Setting model classes to: {list(class_map.keys())}")
+        detector.model.set_classes(list(class_map.keys()))
+        return detector, class_map
 

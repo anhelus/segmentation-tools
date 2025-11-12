@@ -8,13 +8,7 @@ import numpy as np
 
 def run_grounded_sam(args):
     """Configures and runs the Grounded SAM detector."""
-    print("Initializing Grounded SAM detector...")
-    model_id = {
-        'dino': DINO_MODELS[args.dino_model],
-        'sam': SAM_MODELS[args.sam_model]
-    }
-    class_map = {label: idx for idx, label in enumerate(args.class_names)}
-    detector = GroundedSamDetector(model_id)
+    detector, class_map = GroundedSamDetector.load_detector(args.dino_model, args.sam_model, args.class_names)
 
     if args.precomputed_boxes:
         print(f"Running SAM only, using existing labels from: {args.precomputed_boxes}")
@@ -187,3 +181,15 @@ class GroundedSamDetector(BaseModel):
 
     def train(self, **kwargs):
         pass
+
+    @staticmethod
+    def load_detector(dino_key, sam_key, prompts):
+        print("Initializing Grounded SAM detector...")
+        model_id = {
+            'dino': DINO_MODELS[dino_key],
+            'sam': SAM_MODELS[sam_key]
+        }
+        class_map = {label: idx for idx, label in enumerate(prompts)}
+        detector = GroundedSamDetector(model_id)
+
+        return detector, class_map

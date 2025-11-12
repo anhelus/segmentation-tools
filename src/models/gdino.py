@@ -7,9 +7,7 @@ import torch
 def run_dino(args):
     """Configures and runs the Grounding DINO detector."""
     print("Initializing Grounding DINO detector...")
-    model_id = DINO_MODELS[args.model]
-    class_map = {label: idx for idx, label in enumerate(args.class_names)}
-    detector = GDinoDetector(model_id)
+    detector, class_map = GDinoDetector.load_detector(args.model, args.class_names)
 
     return detector.process_directory(
         directory_path=args.bbox_gt,
@@ -106,3 +104,11 @@ class GDinoDetector(BaseModel):
 
     def train(self, **kwargs):
         pass
+
+    @staticmethod
+    def load_detector(model_key, prompts):
+        model_id = DINO_MODELS[model_key]
+        class_map = {label: idx for idx, label in enumerate(prompts)}
+        detector = GDinoDetector(model_id)
+
+        return detector, class_map

@@ -12,7 +12,7 @@ def run_yolo_world(args):
         directory_path=args.bbox_gt,
         model_name=args.model_type,
         class_map=class_map,
-        score_thresh=args.score_threshold,
+        score_threshold=args.score_threshold,
         batch_size=args.batch_size,
         pred_only=args.save_predictions_only,
         metrics_only=args.save_metrics_only,
@@ -20,24 +20,20 @@ def run_yolo_world(args):
 
 
 def train_yolo_world(args):
-    """Configures and trains the Ultralytics YOLO-World detector."""
-    print("Initializing Ultralytics YOLO-World detector...")
-    detector, _ = YoloWorldDetector.load_model(args.model, args.prompts)
-
+    detector, _ = YoloWorldDetector.load_detector(args.model, args.prompts)
     return detector.train(args)
 
 
-def add_yolo_world_parser(subparsers, parent_parser, train=False):
+def add_yolo_world_parser(subparsers, parent_parser, train=False, optim=False):
     yolo_parser = subparsers.add_parser('yolo_world', help='Use Ultralytics YOLO-World model.', parents=[parent_parser])
+    yolo_parser.add_argument('--model', type=str, default='YOLO-X-WORLD', choices=YOLO_WORLD_MODELS.keys())
+    yolo_parser.add_argument('--prompts', nargs='+', required=True, help='Descriptive text prompts for detection.')
+    
+    if not optim:
+        yolo_parser.add_argument('--score-threshold', type=float, default=0.05, help='Detection confidence threshold.')
     
     if train:
         yolo_parser.add_argument('--yaml-path', type=str, help='Path to the Ultralytics dataset configuration YAML.')
-    
-    yolo_parser.add_argument('--model', type=str, default='YOLO-X-WORLD', choices=YOLO_WORLD_MODELS.keys())
-    yolo_parser.add_argument('--score-threshold', '-t', type=float, default=0.05, help='Detection confidence threshold.')
-    yolo_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
-    
-    if train:
         yolo_parser.set_defaults(func=train_yolo_world)
     else:
         yolo_parser.set_defaults(func=run_yolo_world)
@@ -66,9 +62,13 @@ class YoloWorldDetector(BaseModel):
         Performs inference on a batch of images using the Ultralytics YOLO-World model.
         The model's classes should be set once before calling this method.
         """
-        score_thresh = kwargs.get('score_thresh', 0.05)
+        score_threshold = kwargs.get('score_threshold')
 
-        results_batch = self.model.predict(images, conf=score_thresh, verbose=False)
+        if not score_threshold:
+            print("Argument score_threshold not specified. Using default value (0.05)")
+            score_threshold = 0.05
+
+        results_batch = self.model.predict(images, conf=score_threshold, verbose=False)
 
         all_processed_results = []
         for result in results_batch:

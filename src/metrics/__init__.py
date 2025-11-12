@@ -25,7 +25,7 @@ class BboxMetrics(EvalMetrics):
             precisions, recalls, maps = [], [], []
             loop_desc = f"Computing detection metrics with threshold {disp_thresh}"
 
-            for img_gt, img_pred in tqdm(zip(ground_truths, predictions), total=len(ground_truths), desc=loop_desc, unit="img"):
+            for img_gt, img_pred in tqdm(zip(ground_truths, predictions), total=len(ground_truths), desc=loop_desc, unit=" img"):
                 if not img_gt and not img_pred:
                     continue
                 
@@ -38,9 +38,12 @@ class BboxMetrics(EvalMetrics):
                 _map = calculate_map(img_gt, img_pred, thresh, img_dims, BboxMetrics.strategy)
                 maps.append(_map)
 
-            eval[f'Precision@{disp_thresh}'] = np.mean(precisions)
-            eval[f'Recall@{disp_thresh}'] = np.mean(recalls)
-            eval[f'mAP@{disp_thresh}'] = np.mean(maps)
+            if precisions:
+                eval[f'Precision@{disp_thresh}'] = np.mean(precisions)
+            if recalls:
+                eval[f'Recall@{disp_thresh}'] = np.mean(recalls)
+            if maps:
+                eval[f'mAP@{disp_thresh}'] = np.mean(maps)
         
         return eval
 
@@ -66,8 +69,10 @@ class SegmentationMetrics(EvalMetrics):
             iou_list.append(segmentation_iou(prep_gt, prep_pred))
             dice_list.append(dice_score(prep_gt, prep_pred))
         
-        eval['IoU'] = np.mean(iou_list) 
-        eval['Dice'] = np.mean(dice_list)
+        if iou_list:
+            eval['IoU'] = np.mean(iou_list) 
+        if dice_list:
+            eval['Dice'] = np.mean(dice_list)
 
         return eval
 

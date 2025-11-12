@@ -128,7 +128,7 @@ class BaseModel(ABC):
 
             print("Evaluation metrics saved.")
 
-        return output_root if save_pred else None
+        return output_root
     
 
     def process_precomputed_boxes(self, directory_path, model_name, class_map, batch_size=8, **kwargs):

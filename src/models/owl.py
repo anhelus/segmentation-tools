@@ -1,4 +1,5 @@
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, Owlv2Processor, Owlv2ForObjectDetection
+import optim
 from src.models.base_model import BaseModel
 from src.models.constants import OWL_MODELS, DETECTION
 import torch
@@ -6,7 +7,6 @@ import torch
 
 def run_owl(args):
     """Configures and runs the OwlViT detector."""
-    print("Initializing OwlViT detector...")
     detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
 
     return detector.process_directory(
@@ -22,17 +22,17 @@ def run_owl(args):
 
 
 def train_owl(args):
-    print("Initializing OwlViT detector...")
-    detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
+    # detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
     pass
-    
 
 
-def add_owl_parser(subparsers, parent_parser, train=False):
+def add_owl_parser(subparsers, parent_parser, train=False, optim=False):
     owl_parser = subparsers.add_parser('owl', help='Use OwlViT model.', parents=[parent_parser])
     owl_parser.add_argument('--model', type=str, default='OWLVIT-BASE-32', choices=OWL_MODELS.keys())
-    owl_parser.add_argument('--score-threshold', '-t', type=float, default=0.1, help='Detection confidence threshold.')
-    owl_parser.add_argument('--prompts', '-p', nargs='+', required=True, help='Descriptive text prompts for detection.')
+    owl_parser.add_argument('--prompts', nargs='+', required=True, help='Descriptive text prompts for detection.')
+    
+    if not optim:
+        owl_parser.add_argument('--score-threshold', type=float, default=0.1, help='Detection confidence threshold.')
 
     if train:
         owl_parser.set_defaults(func=train_owl)
@@ -70,7 +70,11 @@ class OwlDetector(BaseModel):
         """
         n_img = len(images)
         text_prompts = list(class_map.keys())
-        score_thresh = kwargs.get('score_thresh', 0.1)
+        score_threshold = kwargs.get('score_threshold')
+
+        if score_threshold is None:
+            print("Argument score_threshold not specified. Using default value (0.1)")
+            score_threshold = 0.1
 
         prompts = [text_prompts] * n_img
 
@@ -84,7 +88,7 @@ class OwlDetector(BaseModel):
         results_raw = self.processor.post_process_grounded_object_detection(
             outputs=outputs,
             target_sizes=target_sizes,
-            threshold=score_thresh,
+            threshold=score_threshold,
             text_labels=prompts
         )
         
@@ -107,6 +111,7 @@ class OwlDetector(BaseModel):
 
     @staticmethod
     def load_detector(model_key, prompts, class_names):
+        print("Loading OWL-ViT detector...")
         model_id = OWL_MODELS[model_key]
         class_map = {k: 0 for k in prompts}
         out_labels = class_names if class_names is not None else list(class_map.keys())

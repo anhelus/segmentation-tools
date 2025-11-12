@@ -6,7 +6,6 @@ import torch
 
 def run_dino(args):
     """Configures and runs the Grounding DINO detector."""
-    print("Initializing Grounding DINO detector...")
     detector, class_map = GDinoDetector.load_detector(args.model, args.class_names)
 
     return detector.process_directory(
@@ -27,11 +26,13 @@ def train_dino(args):
     pass
 
 
-def add_dino_parser(subparsers, parent_parser, train=False):
+def add_dino_parser(subparsers, parent_parser, train=False, optim=False):
     dino_parser = subparsers.add_parser('dino', help='Use Grounding DINO model.', parents=[parent_parser])
     dino_parser.add_argument('--model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
-    dino_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
-    dino_parser.add_argument('--box-threshold', '-t', type=float, default=0.2, help='Confidence threshold for object detection box.')
+    
+    if not optim:
+        dino_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
+        dino_parser.add_argument('--box-threshold', type=float, default=0.2, help='Confidence threshold for object detection box.')
     
     if train:
         dino_parser.set_defaults(func=train_dino)
@@ -60,8 +61,15 @@ class GDinoDetector(BaseModel):
         Performs inference on a batch of images using the Grounding DINO model.
         """
         text_for_model = list(class_map.keys())
-        text_threshold = kwargs.get('text_threshold', 0.3)
-        box_threshold = kwargs.get('threshold', 0.35)
+        text_threshold = kwargs.get('text_threshold')
+        box_threshold = kwargs.get('box_threshold')
+
+        if text_threshold is None:
+            print("Argument text_threshold not specified. Using default value (0.35)")
+            text_threshold = 0.35
+        if box_threshold is None:
+            print("Argument box_threshold not specified. Using default value (0.3)")
+            box_threshold = 0.3
 
         # The text input is a list of lists, one for each image in the batch
         text_inputs = [text_for_model] * len(images)
@@ -88,7 +96,7 @@ class GDinoDetector(BaseModel):
         )
 
         all_processed_results = []
-        for i, result in enumerate(results_raw):
+        for result in results_raw:
             processed_for_image = []
             for score, label, box in zip(result["scores"], result["text_labels"], result["boxes"]):
                 if label in class_map:
@@ -107,6 +115,7 @@ class GDinoDetector(BaseModel):
 
     @staticmethod
     def load_detector(model_key, prompts):
+        print("Loading Grounding DINO detector...")
         model_id = DINO_MODELS[model_key]
         class_map = {label: idx for idx, label in enumerate(prompts)}
         detector = GDinoDetector(model_id)

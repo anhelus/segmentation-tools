@@ -38,8 +38,6 @@ def run_grounded_sam(args):
 
 
 def train_grounded_sam(args):
-    """Placeholder for training Grounded SAM - Not implemented."""
-    print("Training Grounded SAM is not implemented yet.")
     pass
 
 
@@ -48,7 +46,7 @@ def add_grounded_sam_parser(subparsers, parent_parser, train=False):
     grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
     grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=SAM_MODELS.keys())
     grounded_sam_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
-    grounded_sam_parser.add_argument('--box-threshold', '-t', type=float, default=0.2, help='Confidence threshold for object detection box.')
+    grounded_sam_parser.add_argument('--box-threshold', type=float, default=0.2, help='Confidence threshold for object detection box.')
     grounded_sam_parser.add_argument(
         '--precomputed-boxes', action="store_true", default=None,
         help='Wether to skip the DINO step and use the boxes in dataset_path/bbox_ground_truth for SAM.'

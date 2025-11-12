@@ -4,10 +4,7 @@ from src.models.constants import DINO_MODELS, DETECTION
 import torch
 
 
-def run_dino(args):
-    """Configures and runs the Grounding DINO detector."""
-    detector, class_map = GDinoDetector.load_detector(args.model, args.class_names)
-
+def pred_dino(detector, class_map, args):
     return detector.process_directory(
         directory_path=args.bbox_gt,
         model_name=args.model_type,
@@ -22,10 +19,6 @@ def run_dino(args):
     )
 
 
-def train_dino(args):
-    pass
-
-
 def add_dino_parser(subparsers, parent_parser, train=False, optim=False):
     dino_parser = subparsers.add_parser('dino', help='Use Grounding DINO model.', parents=[parent_parser])
     dino_parser.add_argument('--model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
@@ -34,10 +27,10 @@ def add_dino_parser(subparsers, parent_parser, train=False, optim=False):
         dino_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
         dino_parser.add_argument('--box-threshold', type=float, default=0.2, help='Confidence threshold for object detection box.')
     
-    if train:
-        dino_parser.set_defaults(func=train_dino)
-    else:
-        dino_parser.set_defaults(func=run_dino)
+    dino_parser.set_defaults(load_func=GDinoDetector.load_detector)
+
+    if not train:
+        dino_parser.set_defaults(func=pred_dino)
 
 
 class GDinoDetector(BaseModel):
@@ -114,10 +107,10 @@ class GDinoDetector(BaseModel):
         pass
 
     @staticmethod
-    def load_detector(model_key, prompts):
+    def load_detector(args):
         print("Loading Grounding DINO detector...")
-        model_id = DINO_MODELS[model_key]
-        class_map = {label: idx for idx, label in enumerate(prompts)}
+        model_id = DINO_MODELS[args.model]
+        class_map = {label: idx for idx, label in enumerate(args.class_names)}
         detector = GDinoDetector(model_id)
 
         return detector, class_map

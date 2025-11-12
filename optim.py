@@ -21,9 +21,6 @@ if __name__ == "__main__":
     
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument(
-        'model_type', type=str, choices=["dino", "owl", "yolo_world"], help='The type of model for which to optimize the thresholds.'
-    )
-    parent_parser.add_argument(
         'config_path', type=str, help='Path to the dataset configuration YAML.'
     )
 
@@ -33,6 +30,8 @@ if __name__ == "__main__":
     add_yolo_world_parser(subparsers, parent_parser, optim=True)
 
     args = parser.parse_args()
+    args.save_predictions_only = False
+    args.save_metrics_only = True
 
     config = parse_cfg(args.config_path)
     args.__dict__.update(config)
@@ -52,12 +51,14 @@ if __name__ == "__main__":
     best_map = -np.inf
     best_params = None
 
+    detector, class_map = args.load_func(args)
+
     for params in param_grid(param_candidates):
         args.__dict__.update(params)
 
         print(f"Running optimization with parameters: {params}")
 
-        out_root = args.func(args)
+        out_root = args.func(detector, class_map, args)
 
         with open(out_root / "metrics.json", 'r') as f:
             eval = json.load(f)

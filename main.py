@@ -37,7 +37,8 @@ if __name__ == "__main__":
     config = parse_cfg(args.config_path)
     args.__dict__.update(config)
     
-    output_root = args.func(args)
+    detector, class_map = args.load_func(args)
+    output_root = args.func(detector, class_map, args)
 
     if output_root:
         classes_file_path = Path(output_root) / 'classes.txt'

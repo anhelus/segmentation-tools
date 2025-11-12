@@ -29,4 +29,7 @@ if __name__ == "__main__":
     config = parse_cfg(args.config_path)
     args.__dict__.update(config)
     
-    args.func(args)
+    detector, class_map = args.load_func(args)
+    detector.train(args)
+
+    print("Training completed.")

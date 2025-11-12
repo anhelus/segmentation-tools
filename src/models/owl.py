@@ -1,14 +1,10 @@
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, Owlv2Processor, Owlv2ForObjectDetection
-import optim
 from src.models.base_model import BaseModel
 from src.models.constants import OWL_MODELS, DETECTION
 import torch
 
 
-def run_owl(args):
-    """Configures and runs the OwlViT detector."""
-    detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
-
+def pred_owl(detector, class_map, args):
     return detector.process_directory(
         directory_path=args.bbox_gt,
         model_name=args.model_type,
@@ -16,14 +12,8 @@ def run_owl(args):
         score_threshold=args.score_threshold,
         pred_only=args.save_predictions_only,
         metrics_only=args.save_metrics_only,
-        out_prompts=out_labels,
         batch_size=args.batch_size,
     )
-
-
-def train_owl(args):
-    # detector, class_map, out_labels = OwlDetector.load_detector(args.model, args.prompts, args.class_names)
-    pass
 
 
 def add_owl_parser(subparsers, parent_parser, train=False, optim=False):
@@ -34,10 +24,10 @@ def add_owl_parser(subparsers, parent_parser, train=False, optim=False):
     if not optim:
         owl_parser.add_argument('--score-threshold', type=float, default=0.1, help='Detection confidence threshold.')
 
-    if train:
-        owl_parser.set_defaults(func=train_owl)
-    else:
-        owl_parser.set_defaults(func=run_owl)
+    owl_parser.set_defaults(load_func=OwlDetector.load_detector)
+
+    if not train:
+        owl_parser.set_defaults(func=pred_owl)
 
 
 class OwlDetector(BaseModel):
@@ -110,9 +100,8 @@ class OwlDetector(BaseModel):
         pass
 
     @staticmethod
-    def load_detector(model_key, prompts, class_names):
+    def load_detector(args):
         print("Loading OWL-ViT detector...")
-        model_id = OWL_MODELS[model_key]
-        class_map = {k: 0 for k in prompts}
-        out_labels = class_names if class_names is not None else list(class_map.keys())
-        return OwlDetector(model_id), class_map, out_labels
+        model_id = OWL_MODELS[args.model]
+        class_map = {k: 0 for k in args.prompts}
+        return OwlDetector(model_id), class_map

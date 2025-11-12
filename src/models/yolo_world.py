@@ -4,10 +4,7 @@ from src.models.constants import YOLO_WORLD_MODELS, DETECTION
 import json
 
 
-def run_yolo_world(args):
-    """Configures and runs the Ultralytics YOLO-World detector."""
-    detector, class_map = YoloWorldDetector.load_detector(args.model, args.prompts)
-
+def pred_yolo_world(detector, class_map, args):
     return detector.process_directory(
         directory_path=args.bbox_gt,
         model_name=args.model_type,
@@ -19,11 +16,6 @@ def run_yolo_world(args):
     )
 
 
-def train_yolo_world(args):
-    detector, _ = YoloWorldDetector.load_detector(args.model, args.prompts)
-    return detector.train(args)
-
-
 def add_yolo_world_parser(subparsers, parent_parser, train=False, optim=False):
     yolo_parser = subparsers.add_parser('yolo_world', help='Use Ultralytics YOLO-World model.', parents=[parent_parser])
     yolo_parser.add_argument('--model', type=str, default='YOLO-X-WORLD', choices=YOLO_WORLD_MODELS.keys())
@@ -32,11 +24,12 @@ def add_yolo_world_parser(subparsers, parent_parser, train=False, optim=False):
     if not optim:
         yolo_parser.add_argument('--score-threshold', type=float, default=0.05, help='Detection confidence threshold.')
     
+    yolo_parser.set_defaults(load_func=YoloWorldDetector.load_detector)
+
     if train:
         yolo_parser.add_argument('--yaml-path', type=str, help='Path to the Ultralytics dataset configuration YAML.')
-        yolo_parser.set_defaults(func=train_yolo_world)
     else:
-        yolo_parser.set_defaults(func=run_yolo_world)
+        yolo_parser.set_defaults(func=pred_yolo_world)
 
 
 class YoloWorldDetector(BaseModel):
@@ -119,10 +112,10 @@ class YoloWorldDetector(BaseModel):
     
 
     @staticmethod
-    def load_detector(model_key, prompts):
+    def load_detector(args):
         print("Loading Ultralytics YOLO-World detector...")
-        model_id = YOLO_WORLD_MODELS[model_key]
-        class_map = {k: 0 for k in prompts}
+        model_id = YOLO_WORLD_MODELS[args.model]
+        class_map = {k: 0 for k in args.prompts}
         detector = YoloWorldDetector(model_id)
         
         print(f"Setting model classes to: {list(class_map.keys())}")

@@ -6,10 +6,7 @@ import torch
 import numpy as np
 
 
-def run_grounded_sam(args):
-    """Configures and runs the Grounded SAM detector."""
-    detector, class_map = GroundedSamDetector.load_detector(args.dino_model, args.sam_model, args.class_names)
-
+def pred_grounded_sam(detector, class_map, args):
     if args.precomputed_boxes:
         print(f"Running SAM only, using existing labels from: {args.precomputed_boxes}")
         
@@ -37,25 +34,23 @@ def run_grounded_sam(args):
     )
 
 
-def train_grounded_sam(args):
-    pass
-
-
-def add_grounded_sam_parser(subparsers, parent_parser, train=False):
+def add_grounded_sam_parser(subparsers, parent_parser, train=False, optim=False):
     grounded_sam_parser = subparsers.add_parser('grounded_sam', help='Use Grounded SAM pipeline.', parents=[parent_parser])
     grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
     grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=SAM_MODELS.keys())
-    grounded_sam_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
-    grounded_sam_parser.add_argument('--box-threshold', type=float, default=0.2, help='Confidence threshold for object detection box.')
     grounded_sam_parser.add_argument(
         '--precomputed-boxes', action="store_true", default=None,
         help='Wether to skip the DINO step and use the boxes in dataset_path/bbox_ground_truth for SAM.'
     )
+
+    if not optim:
+        grounded_sam_parser.add_argument('--text-threshold', type=float, default=0.25, help='Confidence threshold for text matching.')
+        grounded_sam_parser.add_argument('--box-threshold', type=float, default=0.2, help='Confidence threshold for object detection box.')
     
-    if train:
-        grounded_sam_parser.set_defaults(func=train_grounded_sam)
-    else:
-        grounded_sam_parser.set_defaults(func=run_grounded_sam)
+    grounded_sam_parser.set_defaults(load_func=GroundedSamDetector.load_detector)
+
+    if not train:
+        grounded_sam_parser.set_defaults(func=pred_grounded_sam)
 
 
 class GroundedSamDetector(BaseModel):
@@ -180,14 +175,15 @@ class GroundedSamDetector(BaseModel):
     def train(self, **kwargs):
         pass
 
+
     @staticmethod
-    def load_detector(dino_key, sam_key, prompts):
+    def load_detector(args):
         print("Initializing Grounded SAM detector...")
         model_id = {
-            'dino': DINO_MODELS[dino_key],
-            'sam': SAM_MODELS[sam_key]
+            'dino': DINO_MODELS[args.dino_model],
+            'sam': SAM_MODELS[args.sam_model]
         }
-        class_map = {label: idx for idx, label in enumerate(prompts)}
+        class_map = {label: idx for idx, label in enumerate(args.class_names)}
         detector = GroundedSamDetector(model_id)
 
         return detector, class_map

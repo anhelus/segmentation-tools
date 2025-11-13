@@ -10,6 +10,7 @@ def pred_owl(detector, class_map, args):
         model_name=args.model_type,
         class_map=class_map,
         score_threshold=args.score_threshold,
+        output_name=args.output_name,
         pred_only=args.save_predictions_only,
         metrics_only=args.save_metrics_only,
         batch_size=args.batch_size,

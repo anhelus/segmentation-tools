@@ -8,6 +8,7 @@ import numpy as np
 
 def pred_grounded_sam(detector, class_map, args):
     kwargs = {
+        "output_name": args.output_name,
         "text_threshold": args.text_threshold,
         "box_threshold": args.box_threshold,
         "pred_only": args.save_predictions_only,

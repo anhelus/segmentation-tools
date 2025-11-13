@@ -11,6 +11,7 @@ def pred_yolo_world(detector, class_map, args):
         class_map=class_map,
         score_threshold=args.score_threshold,
         batch_size=args.batch_size,
+        output_name=args.output_name,
         pred_only=args.save_predictions_only,
         metrics_only=args.save_metrics_only,
     )

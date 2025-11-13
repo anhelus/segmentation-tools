@@ -91,7 +91,7 @@ class BaseModel(ABC):
         print(f"Starting processing with batch size {batch_size}...")
 
         if pc_boxes:
-            pc_boxes_dir = pc_boxes_root / "labels"
+            pc_boxes_dir = Path(pc_boxes_root) / "labels"
 
         for i in tqdm(range(num_batches), desc=f"Processing batches for {model_name}"):
             batch_paths = image_paths[i*batch_size : (i+1)*batch_size]
@@ -130,7 +130,7 @@ class BaseModel(ABC):
             }
 
             map_thresh_list = kwargs.get('map_thresh_list', [0.5, 0.75])
-            utils.save_eval(self, ground_truths, prediction_data, img_dims, map_thresh_list, output_root, metadata)
+            utils.save_metrics(self, ground_truths, prediction_data, img_dims, map_thresh_list, output_root, metadata)
 
         return output_root
     

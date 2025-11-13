@@ -12,6 +12,7 @@ def pred_dino(detector, class_map, args):
         batch_size=args.batch_size,
         text_threshold=args.text_threshold,
         box_threshold=args.box_threshold,
+        output_name=args.output_name,
         pred_only=args.save_predictions_only,
         metrics_only=args.save_metrics_only,
         image_size=args.image_size,

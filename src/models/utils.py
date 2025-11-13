@@ -270,8 +270,6 @@ def save_labels(images, paths, results, output_root):
 
 
 def save_metrics(model, gt_data, prediction_data, img_dims, map_thresh_list, output_root, metadata):
-    print("Loading ground truth data for evaluation...")
-
     if model.model_type == DETECTION:
         pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
     elif model.model_type == SEGMENTATION:

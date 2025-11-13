@@ -39,35 +39,45 @@ class BaseModel(ABC):
         return self.model_id.split('/')[-1].replace(".pt", "")
 
 
-    def process_directory(self, directory_path, model_name, class_map, batch_size=8, **kwargs):
-        """Processes all images in a directory, applying the detection model."""
-        metrics_only = kwargs["metrics_only"]
-        pred_only = kwargs["pred_only"]
-        
-        complete_pipeline = not (metrics_only or pred_only)
-        save_metrics = metrics_only or complete_pipeline
-        save_pred = pred_only or complete_pipeline
-
-        image_paths = utils.find_image_paths(directory_path)
-        if not image_paths:
-            print(f"No images found in {directory_path}. Exiting.")
-            return None
-        
-        output_name = kwargs.get('output_name')
-
+    def __setup_prediction(self, input_root, output_name, save_pred):
         if not output_name:
             output_name = self.model_identifier() + "_" + time.strftime("%Y-%m-%d_%H-%M-%S")
-        
-        output_root = directory_path.parent / output_name
+
+        output_root = input_root.parent / output_name
         output_root.mkdir(exist_ok=True)
         
         if save_pred:
             try:
-                os.symlink(directory_path / "images", output_root / "images", target_is_directory=True)
+                os.symlink(input_root / "images", output_root / "images", target_is_directory=True)
             except FileExistsError:
                 pass
+
+        image_paths = utils.find_image_paths(input_root / "images")
+        if not image_paths:
+            print(f"No images found in {input_root}. Exiting.")
+            return None
         
-        print(f"Found {len(image_paths)} images. Starting processing with batch size {batch_size}...")
+        print(f"Found {len(image_paths)} images.")
+
+        return output_root, image_paths
+
+
+    def process_directory(self, input_root, model_name, class_map, batch_size=8, **kwargs):
+        """Processes all images in a directory, applying the detection model."""
+        metrics_only = kwargs["metrics_only"]
+        pred_only = kwargs["pred_only"]
+        pc_boxes_root = kwargs.get("precomputed_boxes")
+        pc_boxes = pc_boxes_root is not None
+
+        if metrics_only and pred_only:
+            print("Error: Cannot set both 'metrics_only' and 'pred_only' to True.")
+            return None
+        
+        save_metrics = not pred_only
+        save_pred = not metrics_only
+        
+        output_name = kwargs.get('output_name')
+        output_root, image_paths = self.__setup_prediction(input_root, output_name, save_pred)
         
         num_batches = (len(image_paths) + batch_size - 1) // batch_size
         elapsed_times = []
@@ -77,11 +87,19 @@ class BaseModel(ABC):
                 "images": [],
                 "results": []
             }
+        
+        print(f"Starting processing with batch size {batch_size}...")
+
+        if pc_boxes:
+            pc_boxes_dir = pc_boxes_root / "labels"
 
         for i in tqdm(range(num_batches), desc=f"Processing batches for {model_name}"):
             batch_paths = image_paths[i*batch_size : (i+1)*batch_size]
             batch_images = [Image.open(p).convert("RGB") for p in batch_paths]
             predict_kwargs = kwargs.copy()
+
+            if pc_boxes:
+                predict_kwargs['precomputed_boxes'] = utils.load_precomputed_boxes_batch(pc_boxes_dir, batch_paths, batch_images)
 
             start_time = time.time()
             batch_results = self.predict(batch_images, class_map, **predict_kwargs)
@@ -103,74 +121,16 @@ class BaseModel(ABC):
             img_dims=kwargs.get('image_size', [720, 1280])
 
             print("Loading ground truth data for evaluation...")
-            ground_truths = utils.load_yolo_gt(directory_path, img_dims)
+            ground_truths = utils.load_yolo_gt(input_root, img_dims)
 
-            if self.model_type == DETECTION:
-                pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
-            elif self.model_type == SEGMENTATION:
-                pred_list = lambda pred: [pred["class_index"], pred["mask"], pred["score"]]
+            metadata = {
+                "batch_size": batch_size,
+                "average_inference_time": avg_time,
+                **kwargs
+            }
 
-            print("Preparing predictions for evaluation...")
-            predictions = [
-                [pred_list(prediction) for prediction in image_result]
-                for image_result in prediction_data["results"]
-            ]
-
-            eval = {}
-            eval["model_id"] = self.model_identifier()
-            eval["batch_size"] = batch_size
-            eval.update(kwargs)
-            eval["average_inference_time"] = avg_time
-            metrics = self.metrics.evaluate(ground_truths, predictions, img_dims, thresh_list=kwargs.get('map_thresh_list', [0.5, 0.75]))
-            eval.update(metrics)
-
-            utils.save_metrics(eval, output_root)
-
-            print("Evaluation metrics saved.")
+            map_thresh_list = kwargs.get('map_thresh_list', [0.5, 0.75])
+            utils.save_eval(self, ground_truths, prediction_data, img_dims, map_thresh_list, output_root, metadata)
 
         return output_root
     
-
-    def process_precomputed_boxes(self, directory_path, model_name, class_map, batch_size=8, **kwargs):
-        """Processes all images in a directory, applying the detection model."""
-        image_paths = utils.find_image_paths(directory_path)
-        if not image_paths:
-            print(f"No images found in {directory_path}. Exiting.")
-            return None
-        
-        output_root = directory_path.parent / "seg_ground_truth"
-        output_root.mkdir(exist_ok=True)
-        
-        os.symlink(directory_path / "images", output_root / "images", target_is_directory=True)
-        
-        print(f"Found {len(image_paths)} images. Starting processing with batch size {batch_size}...")
-        
-        num_batches = (len(image_paths) + batch_size - 1) // batch_size
-
-        label_dir = directory_path / "labels"
-        if not label_dir:
-            print("Error: 'label_dir' must be provided in kwargs for precomputed boxes.")
-            return None
-
-        for i in tqdm(range(num_batches), desc=f"Processing batches for {model_name}"):
-            batch_paths = image_paths[i*batch_size : (i+1)*batch_size]
-            batch_images = [Image.open(p).convert("RGB") for p in batch_paths]
-            
-            predict_kwargs = kwargs.copy()
-            precomputed_boxes_batch = []
-            
-            for path, image in zip(batch_paths, batch_images):
-                label_file = Path(label_dir) / f'{path.stem}.txt'
-                if label_file.exists():
-                    boxes = utils.load_precomputed_boxes(label_file, image.width, image.height)
-                    precomputed_boxes_batch.append(boxes)
-                else:
-                    print(f"Warning: Label file not found for {path.name}, will process without precomputed boxes.")
-                    precomputed_boxes_batch.append([])
-
-            predict_kwargs['precomputed_boxes'] = precomputed_boxes_batch
-            batch_results = self.predict(batch_images, class_map, **predict_kwargs)
-            utils.save_labels(batch_images, batch_paths, batch_results, output_root)
-
-        return output_root
-

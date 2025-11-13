@@ -70,7 +70,7 @@ class SegmentationMetrics(EvalMetrics):
             dice_list.append(dice_score(prep_gt, prep_pred))
         
         if iou_list:
-            eval['IoU'] = np.mean(iou_list) 
+            eval['IoU'] = np.mean(iou_list)
         if dice_list:
             eval['Dice'] = np.mean(dice_list)
 

@@ -7,30 +7,27 @@ import numpy as np
 
 
 def pred_grounded_sam(detector, class_map, args):
-    if args.precomputed_boxes:
-        print(f"Running SAM only, using existing labels from: {args.precomputed_boxes}")
-        
-        # TODO da rivedere completamente
-        return detector.process_precomputed_boxes(
-            directory_path=args.bbox_gt,
-            model_name=args.model_type,
-            class_map=class_map,
-            batch_size=args.batch_size
-        )
-    
-    print("Running full Grounded SAM pipeline (DINO + SAM)...")
+    kwargs = {
+        "text_threshold": args.text_threshold,
+        "box_threshold": args.box_threshold,
+        "pred_only": args.save_predictions_only,
+        "metrics_only": args.save_metrics_only,
+        "image_size": args.image_size,
+        "map_thresh_list": args.map_thresh,
+    }
 
+    if args.precomputed_boxes:
+        print(f"Running SAM with precomputed boxes from: {args.precomputed_boxes}")
+        kwargs["precomputed_boxes"] = args.precomputed_boxes
+    else:
+        print("Running full Grounded SAM pipeline (DINO + SAM)...")
+    
     return detector.process_directory(
-        directory_path=args.seg_gt,
+        input_root=args.seg_gt,
         model_name=args.model_type,
         class_map=class_map,
         batch_size=args.batch_size,
-        text_threshold=args.text_threshold,
-        box_threshold=args.box_threshold,
-        pred_only=args.save_predictions_only,
-        metrics_only=args.save_metrics_only,
-        image_size=args.image_size,
-        map_thresh_list=args.map_thresh
+        **kwargs
     )
 
 
@@ -39,8 +36,8 @@ def add_grounded_sam_parser(subparsers, parent_parser, train=False, optim=False)
     grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
     grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=SAM_MODELS.keys())
     grounded_sam_parser.add_argument(
-        '--precomputed-boxes', action="store_true", default=None,
-        help='Wether to skip the DINO step and use the boxes in dataset_path/bbox_ground_truth for SAM.'
+        '--precomputed-boxes', action="str", default=None,
+        help='Specifies the location of the bounding boxes in YOLO format to be used as prompts for SAM. Using this option skips the G-DINO step.'
     )
 
     if not optim:

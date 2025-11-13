@@ -6,7 +6,7 @@ import torch
 
 def pred_dino(detector, class_map, args):
     return detector.process_directory(
-        directory_path=args.bbox_gt,
+        input_root=args.bbox_gt,
         model_name=args.model_type,
         class_map=class_map,
         batch_size=args.batch_size,

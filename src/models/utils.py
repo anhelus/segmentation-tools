@@ -6,6 +6,7 @@ import numpy as np
 import json
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
+from src.models.constants import DETECTION, SEGMENTATION
 
 
 def find_image_paths(directory_path):
@@ -97,6 +98,21 @@ def load_precomputed_boxes(label_path, image_width, image_height):
                 xyxy_box = yolo_to_xyxy(yolo_coords, image_width, image_height)
                 boxes.append(xyxy_box)
     return boxes
+
+
+def load_precomputed_boxes_batch(pc_boxes_dir, batch_paths, batch_images):
+    precomputed_boxes_batch = []
+            
+    for path, image in zip(batch_paths, batch_images):
+        label_file = Path(pc_boxes_dir) / f'{path.stem}.txt'
+        if label_file.exists():
+            boxes = load_precomputed_boxes(label_file, image.width, image.height)
+            precomputed_boxes_batch.append(boxes)
+        else:
+            print(f"Warning: Label file not found for {path.name}, will process without precomputed boxes.")
+            precomputed_boxes_batch.append([])
+
+    return precomputed_boxes_batch
 
 
 def draw_boxes(image, results, output_path):
@@ -253,8 +269,31 @@ def save_labels(images, paths, results, output_root):
             draw_boxes(image, image_results, labeled_image_path)
 
 
-def save_metrics(eval_metrics, output_root):
+def save_metrics(model, gt_data, prediction_data, img_dims, map_thresh_list, output_root, metadata):
+    print("Loading ground truth data for evaluation...")
+
+    if model.model_type == DETECTION:
+        pred_list = lambda pred: [pred["class_index"], *pred["box"], pred["score"]]
+    elif model.model_type == SEGMENTATION:
+        pred_list = lambda pred: [pred["class_index"], pred["mask"], pred["score"]]
+
+    print("Preparing predictions for evaluation...")
+    predictions = [
+        [pred_list(prediction) for prediction in image_result]
+        for image_result in prediction_data["results"]
+    ]
+
+    metrics = model.metrics.evaluate(gt_data, predictions, img_dims, thresh_list=map_thresh_list)
+    
+    eval = {
+        "model_id": model.model_identifier(),
+        "metadata": metadata,
+        "metrics": metrics,
+    }
+
     metrics_path = output_root / 'metrics.json'
     with open(metrics_path, 'w') as f:
-        json.dump(eval_metrics, f, indent=4)
+        json.dump(eval, f, indent=4)
+
+    print("Evaluation metrics saved.")
 

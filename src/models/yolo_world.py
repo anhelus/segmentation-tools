@@ -6,7 +6,7 @@ import json
 
 def pred_yolo_world(detector, class_map, args):
     return detector.process_directory(
-        directory_path=args.bbox_gt,
+        input_root=args.bbox_gt,
         model_name=args.model_type,
         class_map=class_map,
         score_threshold=args.score_threshold,

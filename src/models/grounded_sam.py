@@ -36,7 +36,7 @@ def add_grounded_sam_parser(subparsers, parent_parser, train=False, optim=False)
     grounded_sam_parser.add_argument('--dino-model', type=str, default='GDINO-BASE', choices=DINO_MODELS.keys())
     grounded_sam_parser.add_argument('--sam-model', type=str, default='SAM-2.1', choices=SAM_MODELS.keys())
     grounded_sam_parser.add_argument(
-        '--precomputed-boxes', action="str", default=None,
+        '--precomputed-boxes', type=str, default=None,
         help='Specifies the location of the bounding boxes in YOLO format to be used as prompts for SAM. Using this option skips the G-DINO step.'
     )
 

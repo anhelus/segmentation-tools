@@ -42,9 +42,14 @@ if __name__ == "__main__":
     args.__dict__.update(config)
 
     if args.model_type == "dino":
-        param_candidates = {
+        """param_candidates = {
             "box_threshold": [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.65, 0.8],
             "text_threshold": [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.6]
+        }
+        """
+        param_candidates = {
+            "box_threshold": [0.001],
+            "text_threshold": [ 0.01, 0.05,]
         }
     elif args.model_type in ("owl", "yolo_world"):
         param_candidates = {
@@ -68,12 +73,22 @@ if __name__ == "__main__":
         with open(out_root / "metrics.json", 'r') as f:
             eval = json.load(f)
 
-        current_map = eval.get("mAP@75", -np.inf)
+        current_map = eval["metrics"]["mAP@75"]
 
         if current_map > best_map:
             best_map = current_map
             best_params = params
+            best_eval = eval
         
     print(f"Best parameters: {best_params} with mAP@75: {best_map}")
+    # Save the best metrics file to the out_root
+    if best_params is not None and best_eval is not None:        
+        # Add the best parameters to the metrics dictionary for easy reference
+        best_eval['best_parameters'] = best_params
 
+        with open(f"{out_root}/best_metrics.json" , 'w') as f:
+            # Save the best evaluation dictionary in a readable JSON format
+            json.dump(best_eval, f, indent=4)
+            
+        print(f"\nSaved best parameters metrics to: {out_root}/best_metrics.json")
     

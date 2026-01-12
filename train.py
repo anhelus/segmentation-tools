@@ -19,10 +19,10 @@ if __name__ == "__main__":
     )
 
     subparsers = parser.add_subparsers(dest='model_type', required=True, help='Select the model to run.')
-    add_dino_parser(subparsers, parent_parser, train=True)
-    add_owl_parser(subparsers, parent_parser, train=True)
+    # add_dino_parser(subparsers, parent_parser, train=True)
+    # add_owl_parser(subparsers, parent_parser, train=True)
     add_yolo_world_parser(subparsers, parent_parser, train=True)
-    add_grounded_sam_parser(subparsers, parent_parser, train=True)
+    # add_grounded_sam_parser(subparsers, parent_parser, train=True)
 
     args = parser.parse_args()
 

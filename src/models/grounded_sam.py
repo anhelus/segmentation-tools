@@ -171,7 +171,7 @@ class GroundedSamDetector(BaseModel):
 
 
     def train(self, **kwargs):
-        pass
+        raise NotImplementedError("Training for Grounded SAM is not implemented.")
 
 
     @staticmethod

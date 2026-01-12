@@ -105,7 +105,7 @@ class GDinoDetector(BaseModel):
         return all_processed_results
 
     def train(self, **kwargs):
-        pass
+        raise NotImplementedError("Training for Grounding DINO is not implemented.")
 
     @staticmethod
     def load_detector(args):

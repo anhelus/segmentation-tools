@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     parent_parser.add_argument(
         '--output_name', type=str, default='optimization_results', 
-        help='Base directory name for saving evaluation outputs and metrics (REQUIRED by pred_dino).'
+        help='Base directory name for saving evaluation outputs and metrics.'
     )
 
     subparsers = parser.add_subparsers(dest='model_type', required=True, help='Select the model to optimize.')

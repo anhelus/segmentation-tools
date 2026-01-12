@@ -55,6 +55,7 @@ class OwlDetector(BaseModel):
         
         return model, processor
 
+
     def predict(self, images, class_map, **kwargs):
         """
         Performs inference using the OwlViT model.
@@ -97,8 +98,10 @@ class OwlDetector(BaseModel):
             processed_results.append(processed_result)
         return processed_results
 
+
     def train(self, **kwargs):
-        pass
+        raise NotImplementedError("Training for OwlViT is not implemented.")
+
 
     @staticmethod
     def load_detector(args):

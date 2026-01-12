@@ -163,50 +163,48 @@ def mask_to_yolo_segmentation(mask, image_width, image_height):
 
 def draw_boxes_and_masks(image, results, output_path):
     """
-    Draws both bounding boxes and segmentation masks on an image and saves it.
+    Draws both bounding boxes and segmentation masks on an image using a single-loop approach
+    with layers to preserve visual hierarchy (Text > Mask > Image).
     """
     image_np = np.array(image.convert("RGB"))
-    overlay = image_np.copy()
+    
+    mask_layer = np.zeros_like(image_np) # color masks
+    annotation_layer = np.zeros_like(image_np) # solid elements (boxes, text)
     
     label_colors = {}
 
     for result in results:
         label = result['label']
+        mask = result.get('mask')
+        box = result.get('box')
+
         if label not in label_colors:
             label_colors[label] = np.random.randint(0, 256, size=3).tolist()
-        
-        color = label_colors[label]
-        mask = result.get('mask')
-        
-        if mask is not None:
-            colored_mask = np.zeros_like(image_np, dtype=np.uint8)
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(colored_mask, contours, -1, color, -1)
-            cv2.addWeighted(overlay, 1, colored_mask, 0.5, 0, overlay)
-
-    final_image = cv2.addWeighted(image_np, 0.5, overlay, 0.5, 0)
-
-    for result in results:
-        label = result['label']
-        score = result['score']
-        mask = result.get('mask')
         color = label_colors[label]
 
-        box = [int(c) for c in result['box']]
-
-        # Draw mask contour for better visibility
         if mask is not None:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(final_image, contours, -1, color, 2)
-        
-        # Draw the original bounding box that SAM exploited
-        cv2.rectangle(final_image, (box[0], box[1]), (box[2], box[3]), color, 2)
-        
-        # Draw label background and text
-        text = f"{label}: {score:.2f}"
-        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        cv2.rectangle(final_image, (box[0], box[1] - th - 5), (box[0] + tw, box[1]), color, -1)
-        cv2.putText(final_image, text, (box[0], box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.drawContours(mask_layer, contours, -1, color, -1)
+            cv2.drawContours(annotation_layer, contours, -1, color, 2)
+
+        if box is not None:
+            box = [int(c) for c in box]
+            score = result['score']
+
+            cv2.rectangle(annotation_layer, (box[0], box[1]), (box[2], box[3]), color, 2)
+            
+            text = f"{label}: {score:.2f}"
+            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+            
+            cv2.rectangle(annotation_layer, (box[0], box[1] - th - 5), (box[0] + tw, box[1]), color, -1)
+            cv2.putText(annotation_layer, text, (box[0], box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # Blend Masks
+    final_image = cv2.addWeighted(image_np, 1.0, mask_layer, 0.5, 0)
+    # Apply Annotations
+    annot_gray = cv2.cvtColor(annotation_layer, cv2.COLOR_RGB2GRAY)
+    _, annot_mask = cv2.threshold(annot_gray, 1, 255, cv2.THRESH_BINARY)
+    final_image[annot_mask > 0] = annotation_layer[annot_mask > 0]
 
     final_pil_image = Image.fromarray(final_image)
     final_pil_image.save(output_path)

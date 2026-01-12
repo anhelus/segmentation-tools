@@ -5,6 +5,7 @@ from src.models.gdino import add_dino_parser
 from src.models.owl import add_owl_parser
 from src.models.yolo_world import add_yolo_world_parser
 from src.models.grounded_sam import add_grounded_sam_parser
+from src.models.yolo_global import add_yolo_global_parser
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run zero-shot object detection on a directory of images.")
@@ -30,6 +31,7 @@ if __name__ == "__main__":
     add_dino_parser(subparsers, parent_parser)
     add_owl_parser(subparsers, parent_parser)
     add_yolo_world_parser(subparsers, parent_parser)
+    add_yolo_global_parser(subparsers, parent_parser)
     add_grounded_sam_parser(subparsers, parent_parser)
 
     args = parser.parse_args()

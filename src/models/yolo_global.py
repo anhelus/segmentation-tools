@@ -7,8 +7,9 @@ import json
 
 
 def pred_yolo_global(detector, class_map, args):
+    input_root = args.seg_gt if "seg" in args.model.lower() else args.bbox_gt
     return detector.process_directory(
-        input_root=args.bbox_gt,
+        input_root=input_root,
         model_name=args.model_type,
         class_map=class_map,
         score_threshold=args.score_threshold,
@@ -57,6 +58,10 @@ class YoloGlobalDetector(BaseModel):
         """
         Performs inference on a batch of images using the Custom YOLO-Global model.
         The model's classes should be set once before calling this method.
+
+        The model inference time is extracted from Ultralytic's result object.
+        For further information, see here:
+        https://github.com/ultralytics/ultralytics/blob/8f5665717cbc1d88c4b24934dc91f399a891aead/ultralytics/engine/results.py#L262
         """
         score_threshold = kwargs.get('score_threshold')
 
@@ -64,16 +69,24 @@ class YoloGlobalDetector(BaseModel):
             print("Argument score_threshold not specified. Using default value (0.05)")
             score_threshold = 0.05
 
-        results_batch = self.model.predict(images, conf=score_threshold, verbose=False)
+        batch_results = self.model.predict(images, conf=score_threshold, verbose=False)
 
-        all_processed_results = []
-        for result in results_batch:
-            processed_for_image = []
+        batch_res_data = []
+        batch_res_info = []
+
+        for img_result in batch_results:
             # Get the mapping from class index to class name (prompt) for this result
-            names = result.names
+            names = img_result.names
+
+            img_res_data = []
+            img_res_info = {
+                "preprocess_time": img_result.speed["preprocess"],
+                "inference_time": img_result.speed["inference"],
+                "postprocess_time": img_result.speed["postprocess"]
+            }
 
             if self.model_type == DETECTION:
-                for box in result.boxes:
+                for box in img_result.boxes:
                     class_id_tensor = box.cls
                     # Ensure a class was detected for the bounding box
                     if class_id_tensor.numel() == 0:
@@ -88,22 +101,24 @@ class YoloGlobalDetector(BaseModel):
 
                     # Ensure the detected label is one of the prompts we care about
                     if label in class_map:
-                        processed_for_image.append({
+                        img_res_data.append({
                             "score": score,
                             "label": label,
                             "box": bounding_box,
-                            "class_index": class_map[label] # This will always be 0
+                            "class_index": class_map[label]
                         })
             elif self.model_type == SEGMENTATION:
-                masks = result.masks
+                masks = img_result.masks
                 
                 if masks is None:
-                    all_processed_results.append(processed_for_image)
+                    img_res_info["error"] = "No mask found in the image"
+                    batch_res_data.append([])
+                    batch_res_info.append(img_res_info)
                     continue
                 
                 h, w = masks.orig_shape
 
-                for i, mask in enumerate(masks.data):
+                for mask in masks.data:
                     # TODO enable multiclass and scoring
                     # class_id_tensor = mask.cls
                     # # Ensure a class was detected for the mask
@@ -112,7 +127,7 @@ class YoloGlobalDetector(BaseModel):
 
                     class_id = 0 # int(class_id_tensor[0])
                     label = names[class_id]
-                    score = 0.0 # float(result.masks.conf[i])
+                    score = 0.5 # float(result.masks.conf[i])
                     
                     # Convert the mask tensor to a binary mask
                     binary_mask = (mask.cpu().numpy() > 0.5).astype('uint8')
@@ -125,16 +140,17 @@ class YoloGlobalDetector(BaseModel):
                     
                     # Ensure the detected label is one of the prompts we care about
                     if label in class_map:
-                        processed_for_image.append({
+                        img_res_data.append({
                             "score": score,
                             "label": label,
                             "mask": binary_mask,
                             "class_index": class_map[label] # This will always be 0
                         })
             
-            all_processed_results.append(processed_for_image)
+            batch_res_data.append(img_res_data)
+            batch_res_info.append(img_res_info)
             
-        return all_processed_results
+        return batch_res_data, batch_res_info
 
 
     def train(self, args):

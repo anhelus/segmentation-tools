@@ -80,6 +80,7 @@ class BaseModel(ABC):
         output_root, image_paths = self.__setup_prediction(input_root, output_name, save_pred)
         
         num_batches = (len(image_paths) + batch_size - 1) // batch_size
+        inference_times = []
         elapsed_times = []
 
         if save_metrics or save_pred:
@@ -102,17 +103,24 @@ class BaseModel(ABC):
                 predict_kwargs['precomputed_boxes'] = utils.load_precomputed_boxes_batch(pc_boxes_dir, batch_paths, batch_images)
 
             start_time = time.time()
-            batch_results = self.predict(batch_images, class_map, **predict_kwargs)
+            batch_results_data, batch_results_info = self.predict(batch_images, class_map, **predict_kwargs)
             elapsed_time = time.time() - start_time
+
+            if batch_results_info:
+                inference_times.extend([img_info["inference_time"] for img_info in batch_results_info if "inference_time" in img_info])
             elapsed_times.append(elapsed_time)
             
             if save_pred:
                 prediction_data["images"].extend(batch_images)
             if save_pred or save_metrics:
-                prediction_data["results"].extend(batch_results)
+                prediction_data["results"].extend(batch_results_data)
         
-        avg_time = sum(elapsed_times) / len(elapsed_times)
-        print(f"Average inference time per batch: {avg_time:.2f} seconds")
+        if inference_times:
+            avg_img_inference_time = sum(inference_times) / len(inference_times)
+            print(f"Average inference time per image: {avg_img_inference_time:.2f} seconds")
+        
+        avg_batch_elapsed_time = sum(elapsed_times) / len(elapsed_times)
+        print(f"Average elapsed time per batch: {avg_batch_elapsed_time:.2f} seconds")
 
         if save_pred:
             utils.save_labels(prediction_data["images"], image_paths, prediction_data["results"], output_root)
@@ -125,9 +133,12 @@ class BaseModel(ABC):
 
             metadata = {
                 "batch_size": batch_size,
-                "average_inference_time": avg_time,
+                "average_batch_elapsed_time": avg_batch_elapsed_time,
                 **kwargs
             }
+
+            if inference_times:
+                metadata["average_image_inference_time"] = avg_img_inference_time
 
             map_thresh_list = kwargs.get('map_thresh_list', [0.5, 0.75])
             utils.save_metrics(self, ground_truths, prediction_data, img_dims, map_thresh_list, output_root, metadata)

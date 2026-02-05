@@ -7,7 +7,7 @@ import json
 
 
 def pred_yolo_global(detector, class_map, args):
-    input_root = args.seg_gt if "seg" in args.model.lower() else args.bbox_gt
+    input_root = args.seg_gt if args.model.startswith("YOLO-SEG") else args.bbox_gt
     return detector.process_directory(
         input_root=input_root,
         model_name=args.model_type,
@@ -16,6 +16,7 @@ def pred_yolo_global(detector, class_map, args):
         batch_size=args.batch_size,
         output_name=args.output_name,
         pred_only=args.save_predictions_only,
+        image_size=args.image_size,
         metrics_only=args.save_metrics_only,
     )
 
@@ -51,6 +52,14 @@ class YoloGlobalDetector(BaseModel):
         The processor is integrated into the model object in this library.
         """
         model = YOLO(model_id)
+        
+        # Patch attention modules that may be missing the save_attention attribute
+        # (compatibility fix for models trained with older ultralytics versions)
+        for module in model.model.modules():
+            if module.__class__.__name__ in ['GAM', 'SimAM']:
+                if not hasattr(module, 'save_attention'):
+                    module.save_attention = False
+        
         return model, None
 
 
@@ -109,6 +118,7 @@ class YoloGlobalDetector(BaseModel):
                         })
             elif self.model_type == SEGMENTATION:
                 masks = img_result.masks
+                boxes = img_result.boxes
                 
                 if masks is None:
                     img_res_info["error"] = "No mask found in the image"
@@ -118,16 +128,15 @@ class YoloGlobalDetector(BaseModel):
                 
                 h, w = masks.orig_shape
 
-                for mask in masks.data:
-                    # TODO enable multiclass and scoring
-                    # class_id_tensor = mask.cls
-                    # # Ensure a class was detected for the mask
-                    # if class_id_tensor.numel() == 0:
-                    #     continue
+                for mask, box in zip(masks.data, boxes):
+                    class_id_tensor = box.cls
+                    # Ensure a class was detected for the mask
+                    if class_id_tensor.numel() == 0:
+                        continue
 
-                    class_id = 0 # int(class_id_tensor[0])
+                    class_id = int(class_id_tensor[0])
                     label = names[class_id]
-                    score = 0.5 # float(result.masks.conf[i])
+                    score = float(box.conf[0])
                     
                     # Convert the mask tensor to a binary mask
                     binary_mask = (mask.cpu().numpy() > 0.5).astype('uint8')
@@ -138,13 +147,17 @@ class YoloGlobalDetector(BaseModel):
                         mask_img = mask_img.resize((w, h), resample=Image.NEAREST)
                         binary_mask = np.array(mask_img).astype('uint8')
                     
+                    # The .xyxy attribute provides box coordinates in [xmin, ymin, xmax, ymax] format
+                    bounding_box = box.xyxy[0].tolist()
+                    
                     # Ensure the detected label is one of the prompts we care about
                     if label in class_map:
                         img_res_data.append({
                             "score": score,
                             "label": label,
+                            "box": bounding_box,
                             "mask": binary_mask,
-                            "class_index": class_map[label] # This will always be 0
+                            "class_index": class_map[label]
                         })
             
             batch_res_data.append(img_res_data)

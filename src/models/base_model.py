@@ -80,7 +80,9 @@ class BaseModel(ABC):
         output_root, image_paths = self.__setup_prediction(input_root, output_name, save_pred)
         
         num_batches = (len(image_paths) + batch_size - 1) // batch_size
+        preprocess_times = []
         inference_times = []
+        postprocess_times = []
         elapsed_times = []
 
         if save_metrics or save_pred:
@@ -107,7 +109,9 @@ class BaseModel(ABC):
             elapsed_time = time.time() - start_time
 
             if batch_results_info:
+                preprocess_times.extend([img_info["preprocess_time"] for img_info in batch_results_info if "preprocess_time" in img_info])
                 inference_times.extend([img_info["inference_time"] for img_info in batch_results_info if "inference_time" in img_info])
+                postprocess_times.extend([img_info["postprocess_time"] for img_info in batch_results_info if "postprocess_time" in img_info])
             elapsed_times.append(elapsed_time)
             
             if save_pred:
@@ -115,9 +119,15 @@ class BaseModel(ABC):
             if save_pred or save_metrics:
                 prediction_data["results"].extend(batch_results_data)
         
+        if preprocess_times:
+            avg_img_preprocess_time = sum(preprocess_times) / len(preprocess_times)
+            print(f"Average preprocess time per image: {avg_img_preprocess_time:.2f} ms")
         if inference_times:
             avg_img_inference_time = sum(inference_times) / len(inference_times)
-            print(f"Average inference time per image: {avg_img_inference_time:.2f} seconds")
+            print(f"Average inference time per image: {avg_img_inference_time:.2f} ms")
+        if postprocess_times:
+            avg_img_postprocess_time = sum(postprocess_times) / len(postprocess_times)
+            print(f"Average postprocess time per image: {avg_img_postprocess_time:.2f} ms")
         
         avg_batch_elapsed_time = sum(elapsed_times) / len(elapsed_times)
         print(f"Average elapsed time per batch: {avg_batch_elapsed_time:.2f} seconds")
@@ -137,8 +147,12 @@ class BaseModel(ABC):
                 **kwargs
             }
 
+            if preprocess_times:
+                metadata["average_image_preprocess_time"] = avg_img_preprocess_time
             if inference_times:
                 metadata["average_image_inference_time"] = avg_img_inference_time
+            if postprocess_times:
+                metadata["average_image_postprocess_time"] = avg_img_postprocess_time
 
             map_thresh_list = kwargs.get('map_thresh_list', [0.5, 0.75])
             utils.save_metrics(self, ground_truths, prediction_data, img_dims, map_thresh_list, output_root, metadata)

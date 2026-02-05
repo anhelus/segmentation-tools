@@ -50,11 +50,10 @@ def parse_cfg(yaml_file_path):
         return None
 
 
-def convert_to_yolo_format(box, image_size):
+def xyxy_to_yolo(box, image_width, image_height):
     """
     Converts a bounding box from [x_min, y_min, x_max, y_max] to YOLO format.
     """
-    image_width, image_height = image_size
     x_min, y_min, x_max, y_max = box
 
     x_center = (x_min + x_max) / 2.0
@@ -163,15 +162,26 @@ def mask_to_yolo_segmentation(mask, image_width, image_height):
 
 def draw_boxes_and_masks(image, results, output_path):
     """
-    Draws both bounding boxes and segmentation masks on an image using a single-loop approach
-    with layers to preserve visual hierarchy (Text > Mask > Image).
+    Draws both bounding boxes and segmentation masks on an image using a layered approach
+    with visual hierarchy: Text > Annotations (boxes, contours) > Masks > Image.
     """
     image_np = np.array(image.convert("RGB"))
     
-    mask_layer = np.zeros_like(image_np) # color masks
-    annotation_layer = np.zeros_like(image_np) # solid elements (boxes, text)
+    mask_layer = np.zeros_like(image_np)  # color masks
+    annotation_layer = np.zeros_like(image_np)  # solid elements (boxes, contours)
     
     label_colors = {}
+    text_items = []  # Store text items to draw on top at the end
+
+    # Try to load a TrueType font, fall back to default if unavailable
+    font_size = 16
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+    except (IOError, OSError):
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except (IOError, OSError):
+            font = ImageFont.load_default()
 
     for result in results:
         label = result['label']
@@ -179,13 +189,14 @@ def draw_boxes_and_masks(image, results, output_path):
         box = result.get('box')
 
         if label not in label_colors:
-            label_colors[label] = np.random.randint(0, 256, size=3).tolist()
+            label_colors[label] = np.random.randint(0, 170, size=3).tolist()
         color = label_colors[label]
 
         if mask is not None:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
             cv2.drawContours(mask_layer, contours, -1, color, -1)
-            cv2.drawContours(annotation_layer, contours, -1, color, 2)
+            cv2.drawContours(annotation_layer, contours, -1, color, 1, lineType=cv2.LINE_AA)
 
         if box is not None:
             box = [int(c) for c in box]
@@ -193,20 +204,44 @@ def draw_boxes_and_masks(image, results, output_path):
 
             cv2.rectangle(annotation_layer, (box[0], box[1]), (box[2], box[3]), color, 2)
             
+            # Store text info for later drawing on top
             text = f"{label}: {score:.2f}"
-            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-            
-            cv2.rectangle(annotation_layer, (box[0], box[1] - th - 5), (box[0] + tw, box[1]), color, -1)
-            cv2.putText(annotation_layer, text, (box[0], box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            text_items.append({
+                'text': text,
+                'position': (box[0], box[1]),
+                'color': tuple(color)
+            })
 
     # Blend Masks
     final_image = cv2.addWeighted(image_np, 1.0, mask_layer, 0.5, 0)
-    # Apply Annotations
+    # Apply Annotations (boxes, contours)
     annot_gray = cv2.cvtColor(annotation_layer, cv2.COLOR_RGB2GRAY)
     _, annot_mask = cv2.threshold(annot_gray, 1, 255, cv2.THRESH_BINARY)
     final_image[annot_mask > 0] = annotation_layer[annot_mask > 0]
 
+    # Draw text labels on top using PIL for better font rendering
     final_pil_image = Image.fromarray(final_image)
+    draw = ImageDraw.Draw(final_pil_image)
+    
+    padding = 3
+    for item in text_items:
+        text = item['text']
+        x, y = item['position']
+        color = item['color']
+        
+        # Get text bounding box
+        text_bbox = draw.textbbox((x, y), text, font=font)
+        tw = text_bbox[2] - text_bbox[0]
+        th = text_bbox[3] - text_bbox[1]
+        
+        # Draw background rectangle above the box
+        bg_top = y - th - 2 * padding
+        bg_bottom = y
+        draw.rectangle([x, bg_top, x + tw + 2 * padding, bg_bottom], fill=color)
+        
+        # Draw text
+        draw.text((x + padding, bg_top + padding), text, fill=(255, 255, 255), font=font)
+
     final_pil_image.save(output_path)
 
 
@@ -252,7 +287,7 @@ def save_labels(images, paths, results, output_root):
                     if has_segmentation:
                         yolo_data = mask_to_yolo_segmentation(image_result['mask'], image.width, image.height)
                     else:
-                        yolo_box = convert_to_yolo_format(image_result['box'], image.size)
+                        yolo_box = xyxy_to_yolo(image_result['box'], image.width, image.height)
                         yolo_data = " ".join(f'{c:.6f}' for c in yolo_box)
 
                     if yolo_data:

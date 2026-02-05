@@ -38,6 +38,12 @@ if __name__ == "__main__":
 
     config = parse_cfg(args.config_path)
     args.__dict__.update(config)
+
+    model_id = args.model if args.model else ""
+    print(f"> Running inference with model: {args.model_type} [{model_id}]")
+    print("Loaded configuration:")
+    for key, value in config.items():
+        print(f"  {key}: {value}")
     
     detector, class_map = args.load_func(args)
     output_root = args.func(detector, class_map, args)
@@ -50,3 +56,5 @@ if __name__ == "__main__":
         print(f"Saved class name to {classes_file_path}")
     else:
         print("\nProcessing finished without saving the labels.")
+    
+    print("\n\n")

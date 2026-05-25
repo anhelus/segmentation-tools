@@ -54,12 +54,17 @@ class YoloGlobalDetector(BaseModel):
         model = YOLO(model_id)
         
         # Patch attention modules that may be missing the save_attention attribute
-        # (compatibility fix for models trained with older ultralytics versions)
+        # (compatibility fix for models trained with older versions)
         for module in model.model.modules():
-            if module.__class__.__name__ in ['GAM', 'SimAM']:
-                if not hasattr(module, 'save_attention'):
-                    module.save_attention = False
-        
+            module_name = module.__class__.__name__
+            
+            if not any(attn_type in module_name for attn_type in ['GAM', 'SimAM']):
+                continue
+            if hasattr(module, 'save_attention'):
+                continue
+            
+            module.save_attention = False
+            
         return model, None
 
 

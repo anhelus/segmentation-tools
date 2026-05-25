@@ -1,7 +1,10 @@
 dataset*/
 venv/
+.venv
 runs/
 __pycache__/
+
+data
 
 checkpoints/
 json_tasks_utilities/
